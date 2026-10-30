@@ -85,9 +85,21 @@ object SafeerStoreCache {
         null
     }
 
+    /**
+     * Rok veljavnosti (po vzoru Komi Store, CacheManager): starejsih podatkov ne pokazemo kot trenutnih,
+     * se starejse datoteke pobrisemo.
+     */
+    private const val NAJVEC_PRIKAZ_MS = 3L * 24 * 60 * 60 * 1000
+    private const val NAJVEC_HRAMBA_MS = 7L * 24 * 60 * 60 * 1000
+
+    private fun sveza(datoteka: File): Boolean =
+        System.currentTimeMillis() - datoteka.lastModified() in 0..NAJVEC_PRIKAZ_MS
+
     private fun obreziDiskovniPredpomnilnik() {
         try {
             val m = mapa() ?: return
+            val zdaj = System.currentTimeMillis()
+            m.listFiles()?.filter { it.isFile && zdaj - it.lastModified() > NAJVEC_HRAMBA_MS }?.forEach { it.delete() }
             val datoteke = m.listFiles()?.filter { it.isFile }?.sortedBy { it.lastModified() } ?: return
             if (datoteke.size > 25) {
                 val zaIzbris = datoteke.take(datoteke.size - 25)
@@ -107,7 +119,7 @@ object SafeerStoreCache {
         ramHome.get(kljuc)?.let { return it }
         return try {
             val datoteka = File(mapa() ?: return null, "home_${drzava.lowercase()}_${category.name.lowercase()}.json")
-            if (datoteka.isFile && datoteka.length() > 0) {
+            if (datoteka.isFile && datoteka.length() > 0 && sveza(datoteka)) {
                 val bundle = bundleIzJson(JSONObject(datoteka.readText()))
                 if (bundle.hasCluster()) {
                     ramHome.put(kljuc, bundle)
@@ -144,7 +156,7 @@ object SafeerStoreCache {
         ramTopCharts.get(kljuc)?.let { return it }
         try {
             val datoteka = File(mapa() ?: return null, "chart_${kljuc.lowercase()}.json")
-            if (datoteka.isFile && datoteka.length() > 0) {
+            if (datoteka.isFile && datoteka.length() > 0 && sveza(datoteka)) {
                 val cluster = clusterIzJson(JSONObject(datoteka.readText()))
                 if (cluster.clusterAppList.isNotEmpty()) {
                     ramTopCharts.put(kljuc, cluster)
@@ -176,7 +188,7 @@ object SafeerStoreCache {
         ramCategoryStreams.get(kljuc)?.let { return it }
         try {
             val datoteka = File(mapa() ?: return StreamBundle.EMPTY, "cat_${kljuc.lowercase()}.json")
-            if (datoteka.isFile && datoteka.length() > 0) {
+            if (datoteka.isFile && datoteka.length() > 0 && sveza(datoteka)) {
                 val bundle = bundleIzJson(JSONObject(datoteka.readText()))
                 if (bundle.hasCluster()) {
                     ramCategoryStreams.put(kljuc, bundle)
@@ -209,7 +221,7 @@ object SafeerStoreCache {
         ramCategories.get(kljuc)?.let { return it }
         return try {
             val datoteka = File(mapa() ?: return null, "categories_${drzava.lowercase()}_${type.name.lowercase()}.json")
-            if (datoteka.isFile && datoteka.length() > 0) {
+            if (datoteka.isFile && datoteka.length() > 0 && sveza(datoteka)) {
                 val arr = JSONArray(datoteka.readText())
                 val list = List(arr.length()) { categoryIzJson(arr.getJSONObject(it)) }
                 if (list.isNotEmpty()) {

@@ -12,6 +12,7 @@ import com.aurora.gplayapi.helpers.web.WebDataSafetyHelper
 import com.aurora.gplayapi.helpers.web.WebSearchHelper
 import com.aurora.gplayapi.helpers.web.WebStreamHelper
 import com.aurora.gplayapi.helpers.web.WebTopChartsHelper
+import com.aurora.gplayapi.helpers.web.WebCategoryHelper
 import com.aurora.gplayapi.network.IHttpClient
 import com.aurora.store.data.providers.AuthProvider
 import com.aurora.store.data.providers.SpoofProvider
@@ -109,6 +110,16 @@ object HelperModule {
         spoofProvider: SpoofProvider,
         httpClient: IHttpClient
     ): WebCategoryStreamHelper = WebCategoryStreamHelper()
+        .using(httpClient)
+        .with(spoofProvider.locale)
+
+    /** Vse zvrsti s spletne Trgovine: profil Android TV vrne le 5 zvrsti aplikacij in nobene za igre. */
+    @Singleton
+    @Provides
+    fun providesWebCategoryHelperInstance(
+        spoofProvider: SpoofProvider,
+        httpClient: IHttpClient
+    ): WebCategoryHelper = WebCategoryHelper()
         .using(httpClient)
         .with(spoofProvider.locale)
 

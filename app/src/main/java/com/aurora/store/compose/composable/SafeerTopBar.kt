@@ -56,7 +56,7 @@ val SafeerDarkBg = Color(0xFF0D1214)
 
 @Composable
 fun SafeerStoreTopBar(
-    selectedType: Int, // 1 = Igre, 0 = Aplikacije, 2 = Posodobitve
+    selectedType: Int, // 1 = Igre, 0 = Aplikacije, 2 = Posodobitve, 3 = Safeer
     selectedChartIndex: Int, // 0 = Priporoceno, 1 = Brezplacne, 2 = V trendu, 3 = Donosne, 4 = Placljive
     selectedCategory: Category?,
     categories: List<Category>,
@@ -77,7 +77,8 @@ fun SafeerStoreTopBar(
     val typeOptions = listOf(
         1 to "🎮 Igre",
         0 to "📱 Aplikacije",
-        2 to if (updateCount > 0) "🔄 Posodobitve ($updateCount)" else "🔄 Posodobitve"
+        2 to if (updateCount > 0) "🔄 Posodobitve ($updateCount)" else "🔄 Posodobitve",
+        3 to "🛡️ Safeer"
     )
 
     val chartOptions = listOf(
@@ -92,6 +93,7 @@ fun SafeerStoreTopBar(
     val currentTypeLabel = when (selectedType) {
         1 -> "🎮 Igre"
         0 -> "📱 Aplikacije"
+        3 -> "🛡️ Safeer"
         else -> if (updateCount > 0) "🔄 Posodobitve ($updateCount)" else "🔄 Posodobitve"
     }
 
@@ -125,13 +127,15 @@ fun SafeerStoreTopBar(
                     imageUrl = najdena.imageUrl,
                     type = najdena.type
                 ))
-                zeDodane.add(najdena.title.lowercase())
-                zeDodane.add(najdena.type.name.lowercase())
+                zeDodane.add(najdena.browseUrl)
             }
         }
+        // Vse ostale zvrsti za prednostnimi. Primerjamo po naslovu zvrsti (browseUrl): vrsta (APPLICATION/GAME)
+        // je pri vseh zvrsteh enaka, zato je prej izlocila vse razen prednostnih.
         for (c in categories) {
-            if (c.title.lowercase() !in zeDodane && c.type.name.lowercase() !in zeDodane) {
+            if (c.browseUrl !in zeDodane) {
                 prioriteta.add(c)
+                zeDodane.add(c.browseUrl)
             }
         }
         prioriteta
@@ -153,7 +157,7 @@ fun SafeerStoreTopBar(
         Spacer(Modifier.width(8.dp))
 
         // Ce smo v Posodobitvah, lestvica in zvrst nista smiselni
-        if (selectedType != 2) {
+        if (selectedType != 2 && selectedType != 3) {
             // 2) Razvrstitev / Lestvice (Priporoceno, Priljubljene, Brezplacne, Trending...)
             SafeerTopBarChip(
                 label = currentChartLabel,

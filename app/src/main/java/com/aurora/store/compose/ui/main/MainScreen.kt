@@ -224,6 +224,11 @@ fun MainScreen(
                         .padding(paddingValues)
                 ) {
                 when {
+                    // 0) Safeer: nase aplikacije iz uradnih izdaj (preverjena vsota in podpis)
+                    selectedType == 3 -> {
+                        com.aurora.store.compose.ui.safeer.SafeerScreen()
+                    }
+
                     // 1) Posodobitve
                     selectedType == 2 -> {
                         fun performUpdate(update: Update) {

@@ -190,6 +190,10 @@
 
         <!-- Installation Status Receiver (Session Installer) -->
         <receiver
+            android:name=".data.safeer.SafeerNamestitevReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".data.receiver.InstallerStatusReceiver"
             android:exported="false" />
 

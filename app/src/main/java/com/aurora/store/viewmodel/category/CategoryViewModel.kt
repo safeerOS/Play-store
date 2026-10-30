@@ -27,6 +27,7 @@ import com.aurora.extensions.TAG
 import com.aurora.gplayapi.data.models.Category
 import com.aurora.gplayapi.exceptions.GooglePlayException
 import com.aurora.gplayapi.helpers.CategoryHelper
+import com.aurora.gplayapi.helpers.web.WebCategoryHelper
 import com.aurora.gplayapi.helpers.contracts.CategoryContract
 import com.aurora.store.AuroraApp
 import com.aurora.store.CategoryStash
@@ -40,7 +41,8 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class CategoryViewModel @Inject constructor(
-    private val categoryHelper: CategoryHelper
+    private val categoryHelper: CategoryHelper,
+    private val webCategoryHelper: WebCategoryHelper
 ) : ViewModel() {
 
     private var stash: CategoryStash = mutableMapOf(
@@ -59,17 +61,23 @@ class CategoryViewModel @Inject constructor(
 
             if (predpomnjene.isNotEmpty()) {
                 stash[type] = predpomnjene
-                liveData.postValue(ViewState.Success(stash))
+                liveData.postValue(ViewState.Success(stash.toMutableMap()))
             } else {
                 liveData.postValue(ViewState.Loading)
             }
 
             try {
-                val fresh = contract().getAllCategories(type)
+                // Najprej vse zvrsti s spletne Trgovine (igre in aplikacije); profil naprave (TV) jih vrne le peščico.
+                val splet = try { webCategoryHelper.getAllCategories(type) } catch (e: Exception) {
+                    Log.w(TAG, "Spletne zvrsti niso uspele: ${e.javaClass.simpleName}")
+                    emptyList()
+                }
+                Log.i(TAG, "Zvrsti $type: splet ${splet.size}")
+                val fresh = splet.ifEmpty { contract().getAllCategories(type) }
                 if (fresh.isNotEmpty()) {
                     stash[type] = fresh
                     SafeerStoreCache.shraniKategorije(type, fresh)
-                    liveData.postValue(ViewState.Success(stash))
+                    liveData.postValue(ViewState.Success(stash.toMutableMap()))
                 }
             } catch (exception: GooglePlayException.AuthException) {
                 Log.w(TAG, "Categories fetch returned ${exception.code}, redirecting to Splash")

@@ -377,7 +377,16 @@ class DownloadWorker @AssistedInject constructor(
      * per-app binding if any, otherwise the default account. Refreshes that account's session
      * first if it is missing/expired so the purchase isn't rejected.
      */
+    /** Safeer: avtentikacija s profilom telefona (izhod v sili na TV), sicer null. */
+    private var telefonskaAvtentikacija: com.aurora.gplayapi.data.models.AuthData? = null
+
     private suspend fun resolvePurchaseHelper(packageName: String): PurchaseHelper {
+        if (com.aurora.store.data.safeer.SafeerTelefon.dovoljeno(context, packageName)) {
+            val avt = authProvider.buildPhoneAnonymousAuthData().getOrThrow()
+            telefonskaAvtentikacija = avt
+            Log.i(TAG, "$packageName: telefonska razlicica (izhod v sili na TV)")
+            return PurchaseHelper(avt).using(httpClient)
+        }
         val accountId = accountRepository.resolveAccountId(packageName)
         var authData = authProvider.getAuthData(accountId)
         if (authData == null || !AuthHelper.using(httpClient).isValid(authData)) {
@@ -401,6 +410,12 @@ class DownloadWorker @AssistedInject constructor(
      * @return A list of purchased files
      */
     private fun purchase(packageName: String, versionCode: Long, offerType: Int): List<PlayFile> {
+        telefonskaAvtentikacija?.let { avt ->
+            // Telefonu Google lahko ponuja drugo razlicico kot televizorju.
+            val vc = com.aurora.gplayapi.helpers.AppDetailsHelper(avt).using(httpClient)
+                .getAppByPackageName(packageName).versionCode
+            return purchaseHelper.purchase(packageName, vc, offerType)
+        }
         // Android 9.0+ supports key rotation, so purchase with latest certificate's hash
         return if (isPAndAbove && PackageUtil.isInstalled(context, download.packageName)) {
             purchaseHelper.purchase(

@@ -40,6 +40,7 @@ import androidx.compose.material3.SearchBarValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,8 +53,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -134,6 +135,20 @@ private fun ScreenContent(
     val focusManager = LocalFocusManager.current
     val focusRequester = remember { FocusRequester() }
 
+    val zapriIskalnikInTipkovnico = {
+        keyboardController?.hide()
+        focusManager.clearFocus(force = true)
+        if (searchBarState.targetValue == SearchBarValue.Expanded) {
+            coroutineScope.launch {
+                searchBarState.animateToCollapsed()
+            }
+        }
+    }
+
+    BackHandler(enabled = searchBarState.targetValue == SearchBarValue.Expanded) {
+        zapriIskalnikInTipkovnico()
+    }
+
     val odpriIskanjeInTipkovnico = {
         if (searchBarState.targetValue != SearchBarValue.Expanded) {
             coroutineScope.launch {
@@ -146,12 +161,11 @@ private fun ScreenContent(
         keyboardController?.show()
     }
 
-    BackHandler(enabled = isSearching && searchBarState.targetValue == SearchBarValue.Expanded) {
-        coroutineScope.launch {
-            searchBarState.animateToCollapsed()
+    DisposableEffect(Unit) {
+        onDispose {
+            keyboardController?.hide()
+            focusManager.clearFocus()
         }
-        keyboardController?.hide()
-        focusManager.clearFocus()
     }
 
     LaunchedEffect(key1 = textFieldState) {
@@ -164,13 +178,9 @@ private fun ScreenContent(
         if (textFieldState.text.toString() != trimmed) {
             textFieldState.setTextAndPlaceCursorAtEnd(trimmed)
         }
-        keyboardController?.hide()
-        focusManager.clearFocus()
+        zapriIskalnikInTipkovnico()
         onSearch(trimmed)
         isSearching = true
-        coroutineScope.launch {
-            searchBarState.animateToCollapsed()
-        }
     }
 
     @Composable
@@ -179,14 +189,19 @@ private fun ScreenContent(
             SearchBarDefaults.InputField(
                 modifier = Modifier
                     .focusRequester(focusRequester)
-                    .onFocusChanged { focusState ->
-                        if (focusState.isFocused) {
+                    .onKeyEvent { keyEvent ->
+                        if (keyEvent.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN &&
+                            (keyEvent.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER ||
+                             keyEvent.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_ENTER)
+                        ) {
                             if (searchBarState.targetValue != SearchBarValue.Expanded) {
-                                coroutineScope.launch {
-                                    searchBarState.animateToExpanded()
-                                }
+                                odpriIskanjeInTipkovnico()
+                                true
+                            } else {
+                                false
                             }
-                            keyboardController?.show()
+                        } else {
+                            false
                         }
                     }
                     .pointerInput(Unit) {
@@ -205,7 +220,10 @@ private fun ScreenContent(
                     )
                 },
                 leadingIcon = {
-                    IconButton(onClick = { activity?.onBackPressedDispatcher?.onBackPressed() }) {
+                    IconButton(onClick = {
+                        zapriIskalnikInTipkovnico()
+                        activity?.onBackPressedDispatcher?.onBackPressed()
+                    }) {
                         Icon(
                             painter = painterResource(R.drawable.ic_arrow_back),
                             contentDescription = stringResource(R.string.action_back)
@@ -229,9 +247,6 @@ private fun ScreenContent(
         }
 
         AppBarWithSearch(
-            modifier = Modifier.clickable {
-                odpriIskanjeInTipkovnico()
-            },
             state = searchBarState,
             inputField = inputField,
             colors = SearchBarDefaults.appBarWithSearchColors(

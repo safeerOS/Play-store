@@ -172,6 +172,69 @@ class AuthProvider @Inject constructor(
     }
 
     /**
+     * Safeer: anonimna prijava s profilom telefona (arhitektura in Android te naprave) - le za pakete,
+     * za katere je uporabnik na TV izbral »Prenesi telefonsko razlicico« (Google za TV: ni podprto).
+     */
+    suspend fun buildPhoneAnonymousAuthData(): Result<AuthData> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val lastnosti = com.aurora.store.data.safeer.SafeerTelefon.lastnosti(
+                    context,
+                    spoofProvider.availableSpoofDeviceProperties
+                )
+                var playResponse: PlayResponse? = null
+                try {
+                    val disp = dispenserURL
+                    if (!disp.isNullOrBlank()) {
+                        val resp = httpClient.postAuth(
+                            disp,
+                            json.encodeToString(lastnosti).toByteArray()
+                        )
+                        if (resp.isSuccessful) {
+                            playResponse = resp
+                        }
+                    }
+                } catch (e: Throwable) {
+                    Log.w(TAG, "Dozator žetonov ni dosegljiv: ${e.message}, uporabljam obstoječo sejo")
+                }
+
+                if (playResponse != null) {
+                    val auth = json.decodeFromString<Auth>(String(playResponse.responseBytes))
+                    return@withContext Result.success(
+                        AuthHelper.build(
+                            email = auth.email,
+                            token = auth.auth,
+                            tokenType = AuthHelper.Token.AUTH,
+                            isAnonymous = true,
+                            properties = lastnosti,
+                            locale = spoofProvider.locale
+                        )
+                    )
+                }
+
+                // Če dozator javi 502 / Cloudflare blokado, uporabimo veljavno obstoječo sejo računa
+                // z nadomeščenim profilom tablice/telefona (DeviceInfoProvider)
+                val obstojeci = authData
+                if (obstojeci != null && obstojeci.email != "BOGUS") {
+                    val novDeviceInfoProvider = com.aurora.gplayapi.data.providers.DeviceInfoProvider(
+                        lastnosti,
+                        spoofProvider.locale.toString()
+                    )
+                    val prilagojeni = obstojeci.copy(
+                        deviceInfoProvider = novDeviceInfoProvider
+                    )
+                    return@withContext Result.success(prilagojeni)
+                }
+
+                return@withContext Result.failure(Exception("Prijava s profilom tablice ni uspela (dozator ni dosegljiv in ni shranjene seje)"))
+            } catch (exception: Exception) {
+                Log.e(TAG, "Profil tablice/telefona: prijava ni uspela", exception)
+                return@withContext Result.failure(exception)
+            }
+        }
+    }
+
+    /**
      * Returns the [AuthData] for the given [accountId], or null if not found / not yet cached.
      */
     suspend fun getAuthData(accountId: String): AuthData? {

@@ -157,6 +157,17 @@ fun AppDetailsScreen(
                 extra = err.extra,
                 isAnonymous = viewModel.authProvider.isAnonymous,
                 onBuy = { openPlayStore(context, loadedApp.packageName) },
+                onTelefon = if (com.aurora.store.data.safeer.SafeerTelefon.jeTelevizor(context) &&
+                    com.aurora.store.data.safeer.SafeerTelefon.niPodprto(err.error)
+                ) {
+                    {
+                        com.aurora.store.data.safeer.SafeerTelefon.dovoli(context, loadedApp.packageName)
+                        viewModel.dismissInstallError()
+                        viewModel.enqueueDownload(loadedApp)
+                    }
+                } else {
+                    null
+                },
                 onDismiss = viewModel::dismissInstallError
             )
         }

@@ -225,20 +225,19 @@ object PackageUtil {
         context.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
 
     fun getLaunchIntent(context: Context, packageName: String?): Intent? {
-        val intent = if (isTv(context)) {
-            context.packageManager.getLeanbackLaunchIntentForPackage(packageName!!)
-        } else {
-            context.packageManager.getLaunchIntentForPackage(packageName!!)
-        } ?: return null
-
-        return intent.apply {
-            addCategory(
-                if (isTv(context)) {
-                    Intent.CATEGORY_LEANBACK_LAUNCHER
-                } else {
-                    Intent.CATEGORY_LAUNCHER
+        if (packageName.isNullOrBlank()) return null
+        val pm = context.packageManager
+        if (isTv(context)) {
+            val tvIntent = pm.getLeanbackLaunchIntentForPackage(packageName)
+            if (tvIntent != null) {
+                return tvIntent.apply {
+                    addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
                 }
-            )
+            }
+        }
+        val phoneIntent = pm.getLaunchIntentForPackage(packageName) ?: return null
+        return phoneIntent.apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
         }
     }
 

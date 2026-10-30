@@ -48,6 +48,7 @@ fun InstallErrorSheet(
     extra: String?,
     isAnonymous: Boolean = true,
     onBuy: () -> Unit = {},
+    onTelefon: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -75,7 +76,16 @@ fun InstallErrorSheet(
 
             if (!error.isNullOrBlank()) {
                 Text(
-                    text = error,
+                    text = if (com.aurora.store.data.safeer.SafeerTelefon.niPodprto(error)) {
+                        "Google te aplikacije namensko za TV ne ponuja. " +
+                            if (onTelefon != null) {
+                                "Preneseš lahko tablično različico z večjim zaslonom, ki teče na tej napravi."
+                            } else {
+                                ""
+                            }
+                    } else {
+                        error
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(
@@ -101,6 +111,11 @@ fun InstallErrorSheet(
                     }
                 ) {
                     Text(text = stringResource(R.string.action_copy))
+                }
+                if (onTelefon != null) {
+                    TextButton(onClick = onTelefon) {
+                        Text(text = "Prenesi tablično različico (velik zaslon)")
+                    }
                 }
                 TextButton(onClick = onDismiss) {
                     Text(text = stringResource(R.string.action_ok))

@@ -43,21 +43,38 @@ fun SafeerFokusOkvir(content: @Composable () -> Unit) {
                 drawContent()
                 val r = meje ?: return@drawWithContent
                 if (nacin.inputMode != InputMode.Keyboard) return@drawWithContent
-                // Vsebnik cez skoraj ves zaslon ni element za oznacevanje.
-                if (r.width >= size.width * 0.95f &&
-                    r.height >= size.height * 0.8f
-                ) {
+                // Vsebnik cez skoraj vso sirino zaslona (npr. celotna vrstica glave) ni element za oznacevanje.
+                if (r.width >= size.width * 0.90f) {
                     return@drawWithContent
                 }
                 if (r.width < 4f || r.height < 4f) return@drawWithContent
                 val odmik = 3.dp.toPx()
                 val debelina = 3.dp.toPx()
+                val radijZunanji = if (r.height <= 64.dp.toPx() && r.width >= 120.dp.toPx()) {
+                    CornerRadius(28.dp.toPx())
+                } else {
+                    CornerRadius(14.dp.toPx())
+                }
+                val radijNotranji = if (r.height <= 64.dp.toPx() && r.width >= 120.dp.toPx()) {
+                    CornerRadius(26.dp.toPx())
+                } else {
+                    CornerRadius(12.dp.toPx())
+                }
                 drawRoundRect(
                     color = FokusBarva,
                     topLeft = Offset(r.left - odmik, r.top - odmik),
                     size = Size(r.width + 2 * odmik, r.height + 2 * odmik),
-                    cornerRadius = CornerRadius(14.dp.toPx()),
+                    cornerRadius = radijZunanji,
                     style = Stroke(width = debelina)
+                )
+                // Tanka bela notranja crta: okvir je viden tudi na mint gumbih (npr. Namesti).
+                val notranji = odmik - debelina / 2f
+                drawRoundRect(
+                    color = Color.White,
+                    topLeft = Offset(r.left - notranji + 1f, r.top - notranji + 1f),
+                    size = Size(r.width + 2 * notranji - 2f, r.height + 2 * notranji - 2f),
+                    cornerRadius = radijNotranji,
+                    style = Stroke(width = 1.5.dp.toPx())
                 )
             }
     ) {

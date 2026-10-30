@@ -141,7 +141,9 @@ private fun ScreenContent(
         focusManager.clearFocus()
         onSearch(trimmed)
         isSearching = true
-        coroutineScope.launch { searchBarState.animateToCollapsed() }
+        coroutineScope.launch {
+            searchBarState.animateToCollapsed()
+        }
     }
 
     @Composable
@@ -193,13 +195,15 @@ private fun ScreenContent(
                 appBarContainerColor = Color.Transparent
             )
         )
-        ExpandedDockedSearchBar(state = searchBarState, inputField = inputField) {
-            suggestions.forEach { suggestion ->
-                SearchSuggestionListItem(
-                    searchSuggestEntry = suggestion,
-                    onClick = { query -> onRequestSearch(query) },
-                    onAction = { query -> textFieldState.setTextAndPlaceCursorAtEnd(query.trim()) }
-                )
+        if (!isSearching && searchBarState.targetValue == SearchBarValue.Expanded) {
+            ExpandedDockedSearchBar(state = searchBarState, inputField = inputField) {
+                suggestions.forEach { suggestion ->
+                    SearchSuggestionListItem(
+                        searchSuggestEntry = suggestion,
+                        onClick = { query -> onRequestSearch(query) },
+                        onAction = { query -> textFieldState.setTextAndPlaceCursorAtEnd(query.trim()) }
+                    )
+                }
             }
         }
     }

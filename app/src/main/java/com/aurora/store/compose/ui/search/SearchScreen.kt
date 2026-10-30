@@ -9,10 +9,10 @@ package com.aurora.store.compose.ui.search
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -77,7 +77,6 @@ import com.aurora.store.compose.composable.app.LargeAppListItem
 import com.aurora.store.compose.navigation.Destination
 import com.aurora.store.compose.preview.AppPreviewProvider
 import com.aurora.store.compose.preview.ThemePreviewProvider
-import com.aurora.store.compose.ui.details.AppDetailsScreen
 import com.aurora.store.data.model.SearchFilter
 import com.aurora.store.viewmodel.search.SearchViewModel
 import kotlin.random.Random
@@ -259,7 +258,11 @@ private fun ScreenContent(
                                         results[index]?.let { app ->
                                             LargeAppListItem(
                                                 app = app,
-                                                onClick = { onNavigateTo(Destination.AppDetails(app.packageName)) }
+                                                onClick = {
+                                                    onNavigateTo(
+                                                        Destination.AppDetails(app.packageName)
+                                                    )
+                                                }
                                             )
                                         }
                                     }

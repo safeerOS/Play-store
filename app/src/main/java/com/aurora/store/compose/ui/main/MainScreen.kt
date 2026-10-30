@@ -11,8 +11,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -65,10 +65,10 @@ import com.aurora.store.data.room.update.Update
 import com.aurora.store.util.PackageUtil
 import com.aurora.store.util.Preferences
 import com.aurora.store.util.Preferences.PREFERENCE_UPDATES_WARN_TRACKERS
+import com.aurora.store.viewmodel.all.UpdatesViewModel
 import com.aurora.store.viewmodel.category.CategoryViewModel
 import com.aurora.store.viewmodel.homestream.StreamViewModel
 import com.aurora.store.viewmodel.topchart.TopChartViewModel
-import com.aurora.store.viewmodel.all.UpdatesViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -84,7 +84,9 @@ fun MainScreen(
 ) {
     val context = LocalContext.current
     val networkStatus = LocalNetworkStatus.current
-    val updates by mainViewModel.updateHelper.updates.collectAsStateWithLifecycle(initialValue = null)
+    val updates by mainViewModel.updateHelper.updates.collectAsStateWithLifecycle(
+        initialValue = null
+    )
     val updateCount = updates?.size ?: 0
     val downloads by updatesViewModel.downloadsList.collectAsStateWithLifecycle()
 
@@ -92,7 +94,15 @@ fun MainScreen(
 
     // 1 = Igre (privzeto za igre), 0 = Aplikacije, 2 = Posodobitve
     var selectedType by rememberSaveable {
-        mutableIntStateOf(if (initialTab == 2) 2 else if (initialTab == 0) 0 else 1)
+        mutableIntStateOf(
+            if (initialTab == 2) {
+                2
+            } else if (initialTab == 0) {
+                0
+            } else {
+                1
+            }
+        )
     }
     // 0 = Priporoceno, 1 = Brezplacne, 2 = V trendu, 3 = Donosne, 4 = Placljive
     var selectedChartIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -101,7 +111,10 @@ fun MainScreen(
     val topBarFocusRequester = remember { FocusRequester() }
 
     // Nazaj: zvrst -> lestvica -> Priporoceno -> zapri Trgovino (prej je Nazaj iz zvrsti zaprl Trgovino).
-    androidx.activity.compose.BackHandler(enabled = selectedCategory != null || selectedChartIndex != 0) {
+    androidx.activity.compose.BackHandler(
+        enabled =
+        selectedCategory != null || selectedChartIndex != 0
+    ) {
         if (selectedCategory != null) selectedCategory = null else selectedChartIndex = 0
     }
 
@@ -112,6 +125,7 @@ fun MainScreen(
     }
 
     val categoryState by categoryViewModel.liveData.observeAsState()
+
     @Suppress("UNCHECKED_CAST")
     val categoryStash = (categoryState as? ViewState.Success<*>)?.data as? CategoryStash
     val categories = categoryStash?.get(categoryType).orEmpty()
@@ -171,11 +185,20 @@ fun MainScreen(
             .onKeyEvent { keyEvent ->
                 // Dolgi pritisk tipke GOR kjerkoli nas takoj vrne v zgornjo vrstico
                 if (keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_UP) {
-                    if (keyEvent.nativeKeyEvent.isLongPress || (keyEvent.type == KeyEventType.KeyDown && keyEvent.nativeKeyEvent.repeatCount > 0)) {
+                    if (keyEvent.nativeKeyEvent.isLongPress ||
+                        (
+                            keyEvent.type == KeyEventType.KeyDown &&
+                                keyEvent.nativeKeyEvent.repeatCount > 0
+                            )
+                    ) {
                         topBarFocusRequester.requestFocus()
                         true
-                    } else false
-                } else false
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
             }
     ) {
         // Ozadje Pokrajina (slika gora iz Safeer OS)
@@ -228,144 +251,156 @@ fun MainScreen(
                         .fillMaxSize()
                         .padding(paddingValues)
                 ) {
-                when {
-                    // 0) Safeer: nase aplikacije iz uradnih izdaj (preverjena vsota in podpis)
-                    selectedType == 3 -> {
-                        com.aurora.store.compose.ui.safeer.SafeerScreen()
-                    }
-
-                    // 1) Posodobitve
-                    selectedType == 2 -> {
-                        fun performUpdate(update: Update) {
-                            if (update.fileList.requiresObbDir() &&
-                                !isGranted(context, PermissionType.STORAGE_MANAGER)
-                            ) {
-                                checkingJobs.remove(update.packageName)
-                                onNavigateTo(
-                                    Destination.PermissionRationale(
-                                        setOf(PermissionType.STORAGE_MANAGER)
-                                    )
-                                )
-                            } else {
-                                updatesViewModel.download(update)
-                            }
+                    when {
+                        // 0) Safeer: nase aplikacije iz uradnih izdaj (preverjena vsota in podpis)
+                        selectedType == 3 -> {
+                            com.aurora.store.compose.ui.safeer.SafeerScreen()
                         }
 
-                        UpdatesScreen(
-                            viewModel = updatesViewModel,
-                            onNavigateTo = ::handleNavigation,
-                            onRequestUpdate = { update ->
-                                if (!Preferences.getBoolean(
-                                        context,
-                                        PREFERENCE_UPDATES_WARN_TRACKERS,
-                                        false
-                                    )
-                                ) {
-                                    performUpdate(update)
-                                } else {
-                                    val job = coroutineScope.launch {
-                                        val installedVc = PackageUtil.getInstalledVersionCode(
-                                            context,
-                                            update.packageName
-                                        )
-                                        val trackers = updatesViewModel.getNewTrackers(
-                                            update.packageName,
-                                            installedVc
-                                        )
-                                        if (trackers.isEmpty()) {
-                                            performUpdate(update)
-                                        } else {
-                                            trackerWarning = update to trackers
-                                        }
-                                    }
-                                    checkingJobs[update.packageName] = job
-                                }
-                            },
-                            onRequestUpdateAll = { selectedUpdates ->
-                                val needsObb = selectedUpdates.any {
-                                    it.fileList.requiresObbDir()
-                                }
-                                if (needsObb &&
+                        // F-Droid: drugi vir odprtih aplikacij (podpisano kazalo, preverjeni paketi)
+                        selectedType == 4 -> {
+                            com.aurora.store.compose.ui.safeer.FDroidScreen()
+                        }
+
+                        // 1) Posodobitve
+                        selectedType == 2 -> {
+                            fun performUpdate(update: Update) {
+                                if (update.fileList.requiresObbDir() &&
                                     !isGranted(context, PermissionType.STORAGE_MANAGER)
                                 ) {
+                                    checkingJobs.remove(update.packageName)
                                     onNavigateTo(
                                         Destination.PermissionRationale(
                                             setOf(PermissionType.STORAGE_MANAGER)
                                         )
                                     )
                                 } else {
-                                    updatesViewModel.downloadAll(selectedUpdates)
+                                    updatesViewModel.download(update)
                                 }
-                            },
-                            onCancelUpdate = { packageName ->
-                                if (downloads.any {
-                                        it.packageName == packageName && !it.isFinished
-                                    }
-                                ) {
-                                    checkingJobs.remove(packageName)
-                                    updatesViewModel.cancelDownload(packageName)
-                                } else {
-                                    checkingJobs.remove(packageName)?.cancel()
-                                }
-                            },
-                            onCancelAll = { updatesViewModel.cancelAll() },
-                            checkingPackages = checkingJobs.keys
-                        )
-                    }
-
-                    // 2) Izbrana posamezna zvrst (npr. Akcija, Strategije, Uganke...)
-                    selectedCategory != null -> {
-                        CategoryBrowseScreen(
-                            title = selectedCategory!!.title,
-                            browseUrl = selectedCategory!!.browseUrl,
-                            onNavigateTo = onNavigateTo
-                        )
-                    }
-
-                    // 3) Priljubljene aplikacije (❤️ Priljubljene - index 1)
-                    selectedChartIndex == 1 -> {
-                        FavouriteScreen(
-                            onNavigateTo = onNavigateTo
-                        )
-                    }
-
-                    // 4) Vse zvrsti -> Lestvice (Top Free, Trending, Top Grossing, Top Paid - index >= 2)
-                    selectedChartIndex >= 2 -> {
-                        TopChartsContent(
-                            pageType = selectedType,
-                            viewModel = topChartViewModel,
-                            // Meni: 2 brezplacne, 3 v trendu, 4 donos, 5 placljive;
-                            // TopChartsContent: 0 brezplacne, 1 donos, 2 v trendu, 3 placljive.
-                            forcedChartIndex = when (selectedChartIndex) {
-                                3 -> 2
-                                4 -> 1
-                                5 -> 3
-                                else -> 0
-                            },
-                            showTabs = false,
-                            onAppClick = { onNavigateTo(Destination.AppDetails(it.packageName)) }
-                        )
-                    }
-
-                    // 4) Vse zvrsti -> Priporoceno (Za vas)
-                    else -> {
-                        ForYouContent(
-                            pageType = selectedType,
-                            viewModel = streamViewModel,
-                            onAppClick = { onNavigateTo(Destination.AppDetails(it.packageName)) },
-                            onHeaderClick = { onNavigateTo(Destination.StreamBrowse(it)) },
-                            onClusterScrolled = { cluster ->
-                                streamViewModel.observeCluster(category(selectedType), cluster)
-                            },
-                            onScrolledToEnd = {
-                                streamViewModel.observe(category(selectedType), StreamContract.Type.HOME)
                             }
-                        )
+
+                            UpdatesScreen(
+                                viewModel = updatesViewModel,
+                                onNavigateTo = ::handleNavigation,
+                                onRequestUpdate = { update ->
+                                    if (!Preferences.getBoolean(
+                                            context,
+                                            PREFERENCE_UPDATES_WARN_TRACKERS,
+                                            false
+                                        )
+                                    ) {
+                                        performUpdate(update)
+                                    } else {
+                                        val job = coroutineScope.launch {
+                                            val installedVc = PackageUtil.getInstalledVersionCode(
+                                                context,
+                                                update.packageName
+                                            )
+                                            val trackers = updatesViewModel.getNewTrackers(
+                                                update.packageName,
+                                                installedVc
+                                            )
+                                            if (trackers.isEmpty()) {
+                                                performUpdate(update)
+                                            } else {
+                                                trackerWarning = update to trackers
+                                            }
+                                        }
+                                        checkingJobs[update.packageName] = job
+                                    }
+                                },
+                                onRequestUpdateAll = { selectedUpdates ->
+                                    val needsObb = selectedUpdates.any {
+                                        it.fileList.requiresObbDir()
+                                    }
+                                    if (needsObb &&
+                                        !isGranted(context, PermissionType.STORAGE_MANAGER)
+                                    ) {
+                                        onNavigateTo(
+                                            Destination.PermissionRationale(
+                                                setOf(PermissionType.STORAGE_MANAGER)
+                                            )
+                                        )
+                                    } else {
+                                        updatesViewModel.downloadAll(selectedUpdates)
+                                    }
+                                },
+                                onCancelUpdate = { packageName ->
+                                    if (downloads.any {
+                                            it.packageName == packageName && !it.isFinished
+                                        }
+                                    ) {
+                                        checkingJobs.remove(packageName)
+                                        updatesViewModel.cancelDownload(packageName)
+                                    } else {
+                                        checkingJobs.remove(packageName)?.cancel()
+                                    }
+                                },
+                                onCancelAll = { updatesViewModel.cancelAll() },
+                                checkingPackages = checkingJobs.keys
+                            )
+                        }
+
+                        // 2) Izbrana posamezna zvrst (npr. Akcija, Strategije, Uganke...)
+                        selectedCategory != null -> {
+                            CategoryBrowseScreen(
+                                title = selectedCategory!!.title,
+                                browseUrl = selectedCategory!!.browseUrl,
+                                onNavigateTo = onNavigateTo
+                            )
+                        }
+
+                        // 3) Priljubljene aplikacije (❤️ Priljubljene - index 1)
+                        selectedChartIndex == 1 -> {
+                            FavouriteScreen(
+                                onNavigateTo = onNavigateTo
+                            )
+                        }
+
+                        // 4) Vse zvrsti -> Lestvice (Top Free, Trending, Top Grossing, Top Paid - index >= 2)
+                        selectedChartIndex >= 2 -> {
+                            TopChartsContent(
+                                pageType = selectedType,
+                                viewModel = topChartViewModel,
+                                // Meni: 2 brezplacne, 3 v trendu, 4 donos, 5 placljive;
+                                // TopChartsContent: 0 brezplacne, 1 donos, 2 v trendu, 3 placljive.
+                                forcedChartIndex = when (selectedChartIndex) {
+                                    3 -> 2
+                                    4 -> 1
+                                    5 -> 3
+                                    else -> 0
+                                },
+                                showTabs = false,
+                                onAppClick = {
+                                    onNavigateTo(Destination.AppDetails(it.packageName))
+                                }
+                            )
+                        }
+
+                        // 4) Vse zvrsti -> Priporoceno (Za vas)
+                        else -> {
+                            ForYouContent(
+                                pageType = selectedType,
+                                viewModel = streamViewModel,
+                                onAppClick = {
+                                    onNavigateTo(Destination.AppDetails(it.packageName))
+                                },
+                                onHeaderClick = { onNavigateTo(Destination.StreamBrowse(it)) },
+                                onClusterScrolled = { cluster ->
+                                    streamViewModel.observeCluster(category(selectedType), cluster)
+                                },
+                                onScrolledToEnd = {
+                                    streamViewModel.observe(
+                                        category(selectedType),
+                                        StreamContract.Type.HOME
+                                    )
+                                }
+                            )
+                        }
                     }
                 }
             }
         }
-    }
     }
 
     trackerWarning?.let { (update, trackers) ->

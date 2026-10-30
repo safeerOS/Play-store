@@ -29,8 +29,8 @@ import com.aurora.gplayapi.data.models.StreamCluster
 import com.aurora.gplayapi.helpers.contracts.StreamContract
 import com.aurora.gplayapi.helpers.web.WebStreamHelper
 import com.aurora.store.HomeStash
-import com.aurora.store.data.model.ViewState
 import com.aurora.store.data.cache.SafeerStoreCache
+import com.aurora.store.data.model.ViewState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -54,7 +54,9 @@ class StreamViewModel @Inject constructor(
     private val stashMutex = Mutex()
 
     /** Kategorije, katerih prva stran je v tej seji ze prisla z omrezja (shranjena je samo za takojsen prikaz). */
-    private val svezePrve = java.util.Collections.synchronizedSet(mutableSetOf<StreamContract.Category>())
+    private val svezePrve = java.util.Collections.synchronizedSet(
+        mutableSetOf<StreamContract.Category>()
+    )
 
     fun getStreamBundle(category: StreamContract.Category, type: StreamContract.Type) {
         // Enaka logika kot pri filmih in serijah:
@@ -95,10 +97,14 @@ class StreamViewModel @Inject constructor(
                         }
 
                         if (prva && !newBundle.hasCluster()) return@withLock
-                        val mergedBundle = if (prva) newBundle else bundle.copy(
-                            streamClusters = bundle.streamClusters + newBundle.streamClusters,
-                            streamNextPageUrl = newBundle.streamNextPageUrl
-                        )
+                        val mergedBundle = if (prva) {
+                            newBundle
+                        } else {
+                            bundle.copy(
+                                streamClusters = bundle.streamClusters + newBundle.streamClusters,
+                                streamNextPageUrl = newBundle.streamNextPageUrl
+                            )
+                        }
                         svezePrve.add(category)
                         stash[category] = mergedBundle
                         SafeerStoreCache.shraniHomeBundle(category, mergedBundle)

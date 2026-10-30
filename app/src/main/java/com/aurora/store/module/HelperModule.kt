@@ -7,12 +7,12 @@ import com.aurora.gplayapi.helpers.ReviewsHelper
 import com.aurora.gplayapi.helpers.SearchHelper
 import com.aurora.gplayapi.helpers.StreamHelper
 import com.aurora.gplayapi.helpers.web.WebAppDetailsHelper
+import com.aurora.gplayapi.helpers.web.WebCategoryHelper
 import com.aurora.gplayapi.helpers.web.WebCategoryStreamHelper
 import com.aurora.gplayapi.helpers.web.WebDataSafetyHelper
 import com.aurora.gplayapi.helpers.web.WebSearchHelper
 import com.aurora.gplayapi.helpers.web.WebStreamHelper
 import com.aurora.gplayapi.helpers.web.WebTopChartsHelper
-import com.aurora.gplayapi.helpers.web.WebCategoryHelper
 import com.aurora.gplayapi.network.IHttpClient
 import com.aurora.store.data.providers.AuthProvider
 import com.aurora.store.data.providers.SpoofProvider

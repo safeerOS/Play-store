@@ -48,7 +48,8 @@ private val Meta = Color(0xFF7EDCAB)
 class SafeerViewModel : ViewModel() {
 
     data class Vrstica(val paket: SafeerIzdaje.Paket, val namesceno: String?) {
-        val posodobitev: Boolean get() = namesceno != null && SafeerIzdaje.novejsa(paket.verzija, namesceno)
+        val posodobitev: Boolean get() = namesceno != null &&
+            SafeerIzdaje.novejsa(paket.verzija, namesceno)
         val potrebno: Boolean get() = namesceno == null || posodobitev
     }
 
@@ -66,10 +67,18 @@ class SafeerViewModel : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val paketi = SafeerIzdaje.nalozi(context, SafeerIzdaje.naprava(context), sveze)
-                _stanje.value = Stanje.Seznam(paketi.map { Vrstica(it, SafeerIzdaje.namescena(context, it.paket)) })
+                _stanje.value =
+                    Stanje.Seznam(
+                        paketi.map {
+                            Vrstica(it, SafeerIzdaje.namescena(context, it.paket))
+                        }
+                    )
             } catch (e: Exception) {
                 if (_stanje.value !is Stanje.Seznam) {
-                    _stanje.value = Stanje.Napaka("Izdaje Safeer niso dosegljive. Preveri povezavo in poskusi znova.")
+                    _stanje.value =
+                        Stanje.Napaka(
+                            "Izdaje Safeer niso dosegljive. Preveri povezavo in poskusi znova."
+                        )
                 }
             }
         }
@@ -81,7 +90,9 @@ class SafeerViewModel : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 SafeerIzdaje.sporoci(p.paket, "Prenašam 0 %")
-                val f = SafeerIzdaje.prenesiInPreveri(context, p) { SafeerIzdaje.sporoci(p.paket, "Prenašam $it %") }
+                val f = SafeerIzdaje.prenesiInPreveri(context, p) {
+                    SafeerIzdaje.sporoci(p.paket, "Prenašam $it %")
+                }
                 SafeerIzdaje.sporoci(p.paket, "Preverjeno (vsota in Safeer podpis), nameščam …")
                 SafeerIzdaje.namesti(context, f, p.paket)
             } catch (e: SecurityException) {
@@ -112,7 +123,12 @@ fun SafeerScreen(vm: SafeerViewModel = viewModel()) {
     ) {
         item {
             Column(Modifier.padding(bottom = 4.dp)) {
-                Text("Safeer aplikacije", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    "Safeer aplikacije",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
                 Text(
                     "Uradne izdaje Safeer. Pred namestitvijo preverimo kontrolno vsoto in Safeer podpisni ključ.",
                     color = Color(0xB3FFFFFF),
@@ -125,17 +141,37 @@ fun SafeerScreen(vm: SafeerViewModel = viewModel()) {
                 Text("Nalagam izdaje …", color = Color(0xB3FFFFFF), fontSize = 15.sp)
             }
             is SafeerViewModel.Stanje.Napaka -> item {
-                Kartica(naslov = s.besedilo, opis = "", desno = "Poskusi znova") { vm.nalozi(context, sveze = true) }
+                Kartica(naslov = s.besedilo, opis = "", desno = "Poskusi znova") {
+                    vm.nalozi(context, sveze = true)
+                }
             }
             is SafeerViewModel.Stanje.Seznam -> {
                 if (s.vrstice.isEmpty()) {
-                    item { Text("Za to napravo ni Safeer izdaj.", color = Color(0xB3FFFFFF), fontSize = 15.sp) }
+                    item {
+                        Text(
+                            "Za to napravo ni Safeer izdaj.",
+                            color = Color(0xB3FFFFFF),
+                            fontSize = 15.sp
+                        )
+                    }
                 }
                 items(s.vrstice, key = { it.paket.paket }) { v ->
                     val opis = buildString {
-                        append(if (v.namesceno != null) "Nameščeno ${v.namesceno}" else "Ni nameščeno")
+                        append(
+                            if (v.namesceno !=
+                                null
+                            ) {
+                                "Nameščeno ${v.namesceno}"
+                            } else {
+                                "Ni nameščeno"
+                            }
+                        )
                         append("  ·  Na voljo ${v.paket.verzija}")
-                        if (v.paket.velikost > 0) append("  ·  ${v.paket.velikost / (1024 * 1024)} MB")
+                        if (v.paket.velikost >
+                            0
+                        ) {
+                            append("  ·  ${v.paket.velikost / (1024 * 1024)} MB")
+                        }
                     }
                     val desno = when {
                         v.posodobitev -> "Posodobi"
@@ -172,13 +208,21 @@ private fun Kartica(
             .fillMaxWidth()
             .clip(oblika)
             .background(if (fokus) Meta.copy(alpha = 0.22f) else Color(0x28FFFFFF))
-            .border(BorderStroke(if (fokus) 2.dp else 1.dp, if (fokus) Meta else Color(0x33FFFFFF)), oblika)
+            .border(
+                BorderStroke(if (fokus) 2.dp else 1.dp, if (fokus) Meta else Color(0x33FFFFFF)),
+                oblika
+            )
             .clickable(interactionSource = interakcija, indication = null, onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
-            Text(naslov, color = if (fokus) Meta else Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Text(
+                naslov,
+                color = if (fokus) Meta else Color.White,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold
+            )
             if (opis.isNotEmpty()) Text(opis, color = Color(0xCCFFFFFF), fontSize = 13.sp)
             if (!stanje.isNullOrEmpty()) Text(stanje, color = Meta, fontSize = 13.sp)
         }

@@ -27,8 +27,8 @@ import com.aurora.extensions.TAG
 import com.aurora.gplayapi.data.models.Category
 import com.aurora.gplayapi.exceptions.GooglePlayException
 import com.aurora.gplayapi.helpers.CategoryHelper
-import com.aurora.gplayapi.helpers.web.WebCategoryHelper
 import com.aurora.gplayapi.helpers.contracts.CategoryContract
+import com.aurora.gplayapi.helpers.web.WebCategoryHelper
 import com.aurora.store.AuroraApp
 import com.aurora.store.CategoryStash
 import com.aurora.store.data.cache.SafeerStoreCache
@@ -57,7 +57,13 @@ class CategoryViewModel @Inject constructor(
     fun getCategoryList(type: Category.Type) {
         viewModelScope.launch(Dispatchers.IO) {
             val obstojece = getCategories(type)
-            val predpomnjene = if (obstojece.isNotEmpty()) obstojece else SafeerStoreCache.beriKategorije(type).orEmpty()
+            val predpomnjene = if (obstojece.isNotEmpty()) {
+                obstojece
+            } else {
+                SafeerStoreCache.beriKategorije(
+                    type
+                ).orEmpty()
+            }
 
             if (predpomnjene.isNotEmpty()) {
                 stash[type] = predpomnjene
@@ -68,7 +74,9 @@ class CategoryViewModel @Inject constructor(
 
             try {
                 // Najprej vse zvrsti s spletne Trgovine (igre in aplikacije); profil naprave (TV) jih vrne le peščico.
-                val splet = try { webCategoryHelper.getAllCategories(type) } catch (e: Exception) {
+                val splet = try {
+                    webCategoryHelper.getAllCategories(type)
+                } catch (e: Exception) {
                     Log.w(TAG, "Spletne zvrsti niso uspele: ${e.javaClass.simpleName}")
                     emptyList()
                 }

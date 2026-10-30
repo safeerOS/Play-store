@@ -10,12 +10,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,13 +22,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,7 +56,8 @@ val SafeerDarkBg = Color(0xFF0D1214)
 @Composable
 fun SafeerStoreTopBar(
     selectedType: Int, // 1 = Igre, 0 = Aplikacije, 2 = Posodobitve, 3 = Safeer
-    selectedChartIndex: Int, // 0 = Priporoceno, 1 = Brezplacne, 2 = V trendu, 3 = Donosne, 4 = Placljive
+    // 0 Priporoceno, 1 Priljubljene, 2 brezplacne, 3 v trendu, 4 donos, 5 placljive
+    selectedChartIndex: Int,
     selectedCategory: Category?,
     categories: List<Category>,
     updateCount: Int,
@@ -80,7 +78,8 @@ fun SafeerStoreTopBar(
         1 to "🎮 Igre",
         0 to "📱 Aplikacije",
         2 to if (updateCount > 0) "🔄 Posodobitve ($updateCount)" else "🔄 Posodobitve",
-        3 to "🛡️ Safeer"
+        3 to "🛡️ Safeer",
+        4 to "🤖 F-Droid"
     )
 
     val chartOptions = listOf(
@@ -96,21 +95,38 @@ fun SafeerStoreTopBar(
         1 -> "🎮 Igre"
         0 -> "📱 Aplikacije"
         3 -> "🛡️ Safeer"
+        4 -> "🤖 F-Droid"
         else -> if (updateCount > 0) "🔄 Posodobitve ($updateCount)" else "🔄 Posodobitve"
     }
 
-    val currentChartLabel = chartOptions.firstOrNull { it.first == selectedChartIndex }?.second ?: "⭐ Priporočeno"
+    val currentChartLabel =
+        chartOptions.firstOrNull { it.first == selectedChartIndex }?.second ?: "⭐ Priporočeno"
     val currentCategoryLabel = selectedCategory?.title?.ifBlank { null } ?: "Vse zvrsti"
 
     val prednostneKategorije = remember(categories) {
         val preslikave = listOf(
             "Komunikacija" to listOf("Komunikacija", "Communication", "COMMUNICATION"),
-            "Glasba in zvok" to listOf("Glasba in zvok", "Glasba", "Music & Audio", "Music and Audio", "MUSIC_AND_AUDIO"),
+            "Glasba in zvok" to
+                listOf(
+                    "Glasba in zvok",
+                    "Glasba",
+                    "Music & Audio",
+                    "Music and Audio",
+                    "MUSIC_AND_AUDIO"
+                ),
             "Nakupovanje" to listOf("Nakupovanje", "Shopping", "SHOPPING"),
             "Razvedrilo" to listOf("Razvedrilo", "Zabava", "Entertainment", "ENTERTAINMENT"),
-            "Knjige in viri" to listOf("Knjige in viri", "Knjige", "Books & Reference", "BOOKS_AND_REFERENCE"),
-            "Vse o vašem domu" to listOf("Vse o vašem domu", "Dom", "House & Home", "HOUSE_AND_HOME"),
-            "Turistične in lokalne informacije" to listOf("Turistične in lokalne informacije", "Potovanja in lokalno", "Travel & Local", "TRAVEL_AND_LOCAL")
+            "Knjige in viri" to
+                listOf("Knjige in viri", "Knjige", "Books & Reference", "BOOKS_AND_REFERENCE"),
+            "Vse o vašem domu" to
+                listOf("Vse o vašem domu", "Dom", "House & Home", "HOUSE_AND_HOME"),
+            "Turistične in lokalne informacije" to
+                listOf(
+                    "Turistične in lokalne informacije",
+                    "Potovanja in lokalno",
+                    "Travel & Local",
+                    "TRAVEL_AND_LOCAL"
+                )
         )
         val prioriteta = mutableListOf<Category>()
         val zeDodane = mutableSetOf<String>()
@@ -118,17 +134,19 @@ fun SafeerStoreTopBar(
             val najdena = categories.find { c ->
                 kljuci.any { k ->
                     c.title.equals(k, ignoreCase = true) ||
-                    c.type.name.replace("_", " ").equals(k, ignoreCase = true) ||
-                    c.type.name.equals(k, ignoreCase = true)
+                        c.type.name.replace("_", " ").equals(k, ignoreCase = true) ||
+                        c.type.name.equals(k, ignoreCase = true)
                 }
             }
             if (najdena != null) {
-                prioriteta.add(Category(
-                    title = sloIme,
-                    browseUrl = najdena.browseUrl,
-                    imageUrl = najdena.imageUrl,
-                    type = najdena.type
-                ))
+                prioriteta.add(
+                    Category(
+                        title = sloIme,
+                        browseUrl = najdena.browseUrl,
+                        imageUrl = najdena.imageUrl,
+                        type = najdena.type
+                    )
+                )
                 zeDodane.add(najdena.browseUrl)
             }
         }
@@ -156,31 +174,31 @@ fun SafeerStoreTopBar(
                 .horizontalScroll(rememberScrollState()),
             verticalAlignment = Alignment.CenterVertically
         ) {
-        // 1) Izbira vrste (Igre | Aplikacije | Posodobitve)
-        SafeerTopBarChip(
-            label = currentTypeLabel,
-            onClick = { showTypeDialog = true },
-            modifier = Modifier.focusRequester(firstItemFocusRequester)
-        )
-
-        Spacer(Modifier.width(8.dp))
-
-        // Ce smo v Posodobitvah, lestvica in zvrst nista smiselni
-        if (selectedType != 2 && selectedType != 3) {
-            // 2) Razvrstitev / Lestvice (Priporoceno, Priljubljene, Brezplacne, Trending...)
+            // 1) Izbira vrste (Igre | Aplikacije | Posodobitve)
             SafeerTopBarChip(
-                label = currentChartLabel,
-                onClick = { showChartDialog = true }
+                label = currentTypeLabel,
+                onClick = { showTypeDialog = true },
+                modifier = Modifier.focusRequester(firstItemFocusRequester)
             )
 
             Spacer(Modifier.width(8.dp))
 
-            // 3) Zvrsti / Kategorije
-            SafeerTopBarChip(
-                label = currentCategoryLabel,
-                onClick = { showCategoryDialog = true }
-            )
-        }
+            // Ce smo v Posodobitvah, lestvica in zvrst nista smiselni
+            if (selectedType in 0..1) {
+                // 2) Razvrstitev / Lestvice (Priporoceno, Priljubljene, Brezplacne, Trending...)
+                SafeerTopBarChip(
+                    label = currentChartLabel,
+                    onClick = { showChartDialog = true }
+                )
+
+                Spacer(Modifier.width(8.dp))
+
+                // 3) Zvrsti / Kategorije
+                SafeerTopBarChip(
+                    label = currentCategoryLabel,
+                    onClick = { showCategoryDialog = true }
+                )
+            }
         }
 
         Spacer(Modifier.width(8.dp))
@@ -228,7 +246,9 @@ fun SafeerStoreTopBar(
         SafeerSelectionDialog(
             title = "Razvrstitev",
             options = chartOptions.map { it.second },
-            selectedIndex = chartOptions.indexOfFirst { it.first == selectedChartIndex }.coerceAtLeast(0),
+            selectedIndex = chartOptions.indexOfFirst {
+                it.first == selectedChartIndex
+            }.coerceAtLeast(0),
             onSelect = { index ->
                 showChartDialog = false
                 onChartSelected(chartOptions[index].first)
@@ -240,7 +260,9 @@ fun SafeerStoreTopBar(
     // Modalni dialog: Izbira zvrsti / kategorije
     if (showCategoryDialog) {
         val catOptions = listOf("Vse zvrsti") + prednostneKategorije.map { it.title }
-        val currentIndex = if (selectedCategory == null) 0 else {
+        val currentIndex = if (selectedCategory == null) {
+            0
+        } else {
             val idx = prednostneKategorije.indexOfFirst { it.title == selectedCategory.title }
             if (idx >= 0) idx + 1 else 0
         }
@@ -262,11 +284,7 @@ fun SafeerStoreTopBar(
 }
 
 @Composable
-private fun SafeerTopBarChip(
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+private fun SafeerTopBarChip(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
@@ -372,7 +390,9 @@ private fun SafeerSelectionDialog(
 
                     LaunchedEffect(Unit) {
                         if (index == selectedIndex.coerceAtLeast(0)) {
-                            try { focusRequester.requestFocus() } catch (_: Exception) {}
+                            try {
+                                focusRequester.requestFocus()
+                            } catch (_: Exception) {}
                         }
                     }
 
@@ -389,7 +409,14 @@ private fun SafeerSelectionDialog(
                                 }
                             )
                             .border(
-                                if (isFocused) BorderStroke(2.dp, SafeerMint) else BorderStroke(0.dp, Color.Transparent),
+                                if (isFocused) {
+                                    BorderStroke(
+                                        2.dp,
+                                        SafeerMint
+                                    )
+                                } else {
+                                    BorderStroke(0.dp, Color.Transparent)
+                                },
                                 RoundedCornerShape(8.dp)
                             )
                             .clickable(interactionSource = interactionSource, indication = null) {
@@ -411,7 +438,13 @@ private fun SafeerSelectionDialog(
                             text = option,
                             color = if (isFocused || isSelected) Color.White else Color(0xCCFFFFFF),
                             fontSize = 15.sp,
-                            fontWeight = if (isSelected || isFocused) FontWeight.Bold else FontWeight.Normal
+                            fontWeight = if (isSelected ||
+                                isFocused
+                            ) {
+                                FontWeight.Bold
+                            } else {
+                                FontWeight.Normal
+                            }
                         )
                     }
                 }

@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -55,7 +54,6 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.aurora.gplayapi.data.models.App
-import com.aurora.store.R
 import com.aurora.store.compose.composable.SafeerMint
 import com.aurora.store.data.room.favourite.Favourite
 import com.aurora.store.data.room.favourite.FavouriteEntryPoint
@@ -86,7 +84,10 @@ fun AppListItem(
 
     LaunchedEffect(app.packageName) {
         try {
-            val dao = EntryPointAccessors.fromApplication(context.applicationContext, FavouriteEntryPoint::class.java).favouriteDao()
+            val dao = EntryPointAccessors.fromApplication(
+                context.applicationContext,
+                FavouriteEntryPoint::class.java
+            ).favouriteDao()
             isFav = dao.isFavourite(app.packageName)
         } catch (_: Exception) {}
     }
@@ -94,19 +95,30 @@ fun AppListItem(
     fun toggleFavourite() {
         coroutineScope.launch(Dispatchers.IO) {
             try {
-                val dao = EntryPointAccessors.fromApplication(context.applicationContext, FavouriteEntryPoint::class.java).favouriteDao()
+                val dao = EntryPointAccessors.fromApplication(
+                    context.applicationContext,
+                    FavouriteEntryPoint::class.java
+                ).favouriteDao()
                 val trenutno = dao.isFavourite(app.packageName)
                 if (trenutno) {
                     dao.delete(app.packageName)
                     withContext(Dispatchers.Main) {
                         isFav = false
-                        Toast.makeText(context, "${app.displayName}: odstranjeno iz priljubljenih", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            "${app.displayName}: odstranjeno iz priljubljenih",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 } else {
                     dao.insert(Favourite.fromApp(app, Favourite.Mode.MANUAL))
                     withContext(Dispatchers.Main) {
                         isFav = true
-                        Toast.makeText(context, "${app.displayName}: dodano med priljubljene ❤️", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            "${app.displayName}: dodano med priljubljene ❤️",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             } catch (_: Exception) {}
@@ -129,11 +141,17 @@ fun AppListItem(
             .border(borderStroke, cardShape)
             .onKeyEvent { keyEvent ->
                 if (keyEvent.type == KeyEventType.KeyDown &&
-                    (keyEvent.key == Key.Menu || keyEvent.key == Key.ButtonX || keyEvent.key == Key.ButtonY)
+                    (
+                        keyEvent.key == Key.Menu ||
+                            keyEvent.key == Key.ButtonX ||
+                            keyEvent.key == Key.ButtonY
+                        )
                 ) {
                     toggleFavourite()
                     true
-                } else false
+                } else {
+                    false
+                }
             }
             .combinedClickable(
                 interactionSource = interactionSource,

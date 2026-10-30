@@ -12,7 +12,12 @@ class SafeerNamestitevReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val paket = intent.getStringExtra(SafeerIzdaje.EXTRA_PAKET).orEmpty()
-        when (val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
+        when (
+            val status = intent.getIntExtra(
+                PackageInstaller.EXTRA_STATUS,
+                PackageInstaller.STATUS_FAILURE
+            )
+        ) {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                 val potrdi: Intent? = if (Build.VERSION.SDK_INT >= 33) {
                     intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
@@ -36,7 +41,13 @@ class SafeerNamestitevReceiver : BroadcastReceiver() {
                 Log.w("SafeerIzdaje", "Namestitev $paket: status $status $msg")
                 SafeerIzdaje.sporoci(
                     paket,
-                    if (status == PackageInstaller.STATUS_FAILURE_ABORTED) "Namestitev preklicana" else "Namestitev ni uspela"
+                    if (status ==
+                        PackageInstaller.STATUS_FAILURE_ABORTED
+                    ) {
+                        "Namestitev preklicana"
+                    } else {
+                        "Namestitev ni uspela"
+                    }
                 )
             }
         }

@@ -9,16 +9,16 @@ import android.content.pm.PackageManager
 import android.content.pm.Signature
 import android.os.Build
 import android.util.Log
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import org.json.JSONObject
 import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import org.json.JSONObject
 
 /**
  * Razdelek »Safeer« v Safeer Play Store: nase aplikacije (Safeer OS, Safeer TV Browser, Safeer Predvajalnik)
@@ -52,7 +52,12 @@ object SafeerIzdaje {
         val velikost: Long
     )
 
-    private data class Vzorec(val predpona: String, val ime: String, val paket: String, val naprava: Naprava)
+    private data class Vzorec(
+        val predpona: String,
+        val ime: String,
+        val paket: String,
+        val naprava: Naprava
+    )
 
     private val VZORCI = listOf(
         Vzorec("safeer-os-tv-", "Safeer OS", "si.safeer.os", Naprava.TV),
@@ -65,6 +70,7 @@ object SafeerIzdaje {
     private val VERZIJA = Regex("""\d+(\.\d+){0,4}""")
 
     private val _sporocila = MutableStateFlow<Map<String, String>>(emptyMap())
+
     /** Stanje prenosa ali namestitve po paketih (za prikaz v vrstici). */
     val sporocila: StateFlow<Map<String, String>> = _sporocila.asStateFlow()
 
@@ -75,7 +81,13 @@ object SafeerIzdaje {
     fun naprava(context: Context): Naprava {
         val pm = context.packageManager
         if (pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK)) return Naprava.TV
-        return if (context.resources.configuration.smallestScreenWidthDp >= 600) Naprava.TABLICA else Naprava.TELEFON
+        return if (context.resources.configuration.smallestScreenWidthDp >=
+            600
+        ) {
+            Naprava.TABLICA
+        } else {
+            Naprava.TELEFON
+        }
     }
 
     /** Iz odgovora GitHuba (releases/latest) izbere pakete za to napravo. Cista funkcija (preizkusi). */
@@ -86,12 +98,16 @@ object SafeerIzdaje {
             val a = sredstva.optJSONObject(i) ?: continue
             val ime = a.optString("name")
             if (!ime.endsWith(".apk")) continue
-            val v = VZORCI.firstOrNull { ime.startsWith(it.predpona) && it.naprava == naprava } ?: continue
+            val v =
+                VZORCI.firstOrNull { ime.startsWith(it.predpona) && it.naprava == naprava }
+                    ?: continue
             val verzija = ime.removePrefix(v.predpona).removeSuffix(".apk")
             if (!VERZIJA.matches(verzija)) continue
             val url = a.optString("browser_download_url")
             if (!url.startsWith(PRENOSI)) continue
-            val digest = a.optString("digest").takeIf { it.startsWith("sha256:") }?.removePrefix("sha256:")?.lowercase()
+            val digest = a.optString("digest").takeIf {
+                it.startsWith("sha256:")
+            }?.removePrefix("sha256:")?.lowercase()
             izid += Paket(v.ime, v.paket, verzija, url, digest, a.optLong("size"))
         }
         return izid.distinctBy { it.paket }
@@ -100,7 +116,10 @@ object SafeerIzdaje {
     /** Ali je izdaja [na] novejsa od namescene [imam] (stevilke loci pika; pripone kot -beta zanemarimo). */
     fun novejsa(na: String, imam: String?): Boolean {
         if (imam.isNullOrBlank()) return true
-        fun deli(s: String) = s.takeWhile { it.isDigit() || it == '.' }.split('.').map { it.toIntOrNull() ?: 0 }
+        fun deli(s: String) = s.takeWhile { it.isDigit() || it == '.' }.split('.').map {
+            it.toIntOrNull()
+                ?: 0
+        }
         val a = deli(na)
         val b = deli(imam)
         for (i in 0 until maxOf(a.size, b.size)) {
@@ -119,7 +138,10 @@ object SafeerIzdaje {
 
     fun nalozi(context: Context, naprava: Naprava, sveze: Boolean): List<Paket> {
         val f = File(context.cacheDir, "safeer-izdaje.json")
-        val json = if (!sveze && f.isFile && System.currentTimeMillis() - f.lastModified() in 0..SVEZE_MS) {
+        val json = if (!sveze &&
+            f.isFile &&
+            System.currentTimeMillis() - f.lastModified() in 0..SVEZE_MS
+        ) {
             f.readText()
         } else {
             try {
@@ -176,7 +198,10 @@ object SafeerIzdaje {
                         preneseno += n
                         if (skupaj > 0) {
                             val odstotek = (preneseno * 100 / skupaj).toInt()
-                            if (odstotek != zadnji) { zadnji = odstotek; napredek(odstotek) }
+                            if (odstotek != zadnji) {
+                                zadnji = odstotek
+                                napredek(odstotek)
+                            }
                         }
                     }
                 }
@@ -218,7 +243,9 @@ object SafeerIzdaje {
     /** Namestitev prek sistemskega namescevalnika; sistem uporabnika vprasa za potrditev. */
     fun namesti(context: Context, f: File, paket: String) {
         val pi = context.packageManager.packageInstaller
-        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
+        val params = PackageInstaller.SessionParams(
+            PackageInstaller.SessionParams.MODE_FULL_INSTALL
+        ).apply {
             setAppPackageName(paket)
             if (Build.VERSION.SDK_INT >= 31) {
                 setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)

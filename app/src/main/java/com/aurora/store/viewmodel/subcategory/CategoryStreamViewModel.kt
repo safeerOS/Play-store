@@ -15,8 +15,8 @@ import com.aurora.gplayapi.data.models.StreamCluster
 import com.aurora.gplayapi.helpers.contracts.CategoryStreamContract
 import com.aurora.gplayapi.helpers.contracts.StreamContract
 import com.aurora.gplayapi.helpers.web.WebCategoryStreamHelper
-import com.aurora.store.data.model.ViewState
 import com.aurora.store.data.cache.SafeerStoreCache
+import com.aurora.store.data.model.ViewState
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -45,7 +45,9 @@ class CategoryStreamViewModel @AssistedInject constructor(
         get() = webCategoryStreamHelper
 
     private var streamBundle = StreamBundle.EMPTY
+
     @Volatile private var svezaPrva = false
+
     @Volatile private var nalagam = false
     private var cakanje: kotlinx.coroutines.Job? = null
 
@@ -93,10 +95,15 @@ class CategoryStreamViewModel @AssistedInject constructor(
                     }
 
                     if (newBundle.hasCluster()) {
-                        streamBundle = if (prva) newBundle else streamBundle.copy(
-                            streamClusters = streamBundle.streamClusters + newBundle.streamClusters,
-                            streamNextPageUrl = newBundle.streamNextPageUrl
-                        )
+                        streamBundle = if (prva) {
+                            newBundle
+                        } else {
+                            streamBundle.copy(
+                                streamClusters =
+                                streamBundle.streamClusters + newBundle.streamClusters,
+                                streamNextPageUrl = newBundle.streamNextPageUrl
+                            )
+                        }
                         svezaPrva = true
                         cakanje?.cancel()
                         SafeerStoreCache.shraniCategoryBundle(browseUrl, streamBundle)

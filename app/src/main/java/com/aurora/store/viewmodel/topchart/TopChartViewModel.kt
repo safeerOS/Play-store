@@ -77,7 +77,8 @@ class TopChartViewModel @Inject constructor(
         val k = Kljuc(type, chart)
         izbrana = k
         cakanje?.cancel()
-        val znana = lestvice[k] ?: SafeerStoreCache.beriTopChart(type, chart)?.also { lestvice[k] = it }
+        val znana =
+            lestvice[k] ?: SafeerStoreCache.beriTopChart(type, chart)?.also { lestvice[k] = it }
         if (znana != null && znana.clusterAppList.isNotEmpty()) {
             _state.value = ViewState.Success(znana)
         } else {
@@ -121,7 +122,10 @@ class TopChartViewModel @Inject constructor(
                     }
                     return
                 }
-                Log.i(TAG, "lestvica ${k.type} ${k.chart} ${cluster.clusterAppList.size} aplikacij v ${SystemClock.elapsedRealtime() - zacetek} ms")
+                Log.i(
+                    TAG,
+                    "lestvica ${k.type} ${k.chart} ${cluster.clusterAppList.size} aplikacij v ${SystemClock.elapsedRealtime() - zacetek} ms"
+                )
                 if (cluster.clusterAppList.isEmpty()) return
                 nalozeneVSeji.add(k)
                 lestvice[k] = cluster
@@ -142,10 +146,15 @@ class TopChartViewModel @Inject constructor(
             try {
                 val target = lestvice[k] ?: return@launch
                 if (!target.hasNext() || k !in nalozeneVSeji) return@launch
-                val nova = topChartsContract.getNextStreamCluster(target.id, target.clusterNextPageUrl)
+                val nova = topChartsContract.getNextStreamCluster(
+                    target.id,
+                    target.clusterNextPageUrl
+                )
                 val zdruzena = target.copy(
                     clusterNextPageUrl = nova.clusterNextPageUrl,
-                    clusterAppList = (target.clusterAppList + nova.clusterAppList).distinctBy { it.packageName }
+                    clusterAppList = (target.clusterAppList + nova.clusterAppList).distinctBy {
+                        it.packageName
+                    }
                 )
                 lestvice[k] = zdruzena
                 if (izbrana == k) _state.value = ViewState.Success(zdruzena)

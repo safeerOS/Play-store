@@ -15,11 +15,11 @@ import com.aurora.gplayapi.data.models.StreamCluster
 import com.aurora.gplayapi.helpers.contracts.StreamContract
 import com.aurora.gplayapi.helpers.contracts.TopChartsContract
 import com.aurora.store.AuroraApp
-import org.json.JSONArray
-import org.json.JSONObject
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.Executors
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * Trajni predpomnilnik trgovine aplikacij (Safeer Trgovina) z:
@@ -46,7 +46,10 @@ object SafeerStoreCache {
      */
     fun trenutnaDrzava(): String {
         return try {
-            val prefs = AuroraApp.appContext.getSharedPreferences("com.aurora.store_preferences", Context.MODE_PRIVATE)
+            val prefs = AuroraApp.appContext.getSharedPreferences(
+                "com.aurora.store_preferences",
+                Context.MODE_PRIVATE
+            )
             val spoof = prefs.getString("LOCALE_SPOOF_COUNTRY", null)
             if (!spoof.isNullOrBlank()) return spoof.uppercase()
             val c = Locale.getDefault().country.uppercase()
@@ -99,8 +102,11 @@ object SafeerStoreCache {
         try {
             val m = mapa() ?: return
             val zdaj = System.currentTimeMillis()
-            m.listFiles()?.filter { it.isFile && zdaj - it.lastModified() > NAJVEC_HRAMBA_MS }?.forEach { it.delete() }
-            val datoteke = m.listFiles()?.filter { it.isFile }?.sortedBy { it.lastModified() } ?: return
+            m.listFiles()?.filter {
+                it.isFile && zdaj - it.lastModified() > NAJVEC_HRAMBA_MS
+            }?.forEach { it.delete() }
+            val datoteke =
+                m.listFiles()?.filter { it.isFile }?.sortedBy { it.lastModified() } ?: return
             if (datoteke.size > 25) {
                 val zaIzbris = datoteke.take(datoteke.size - 25)
                 zaIzbris.forEach { it.delete() }
@@ -118,14 +124,22 @@ object SafeerStoreCache {
         val kljuc = "${drzava}_${category.name}"
         ramHome.get(kljuc)?.let { return it }
         return try {
-            val datoteka = File(mapa() ?: return null, "home_${drzava.lowercase()}_${category.name.lowercase()}.json")
+            val datoteka =
+                File(
+                    mapa() ?: return null,
+                    "home_${drzava.lowercase()}_${category.name.lowercase()}.json"
+                )
             if (datoteka.isFile && datoteka.length() > 0 && sveza(datoteka)) {
                 val bundle = bundleIzJson(JSONObject(datoteka.readText()))
                 if (bundle.hasCluster()) {
                     ramHome.put(kljuc, bundle)
                     bundle
-                } else null
-            } else null
+                } else {
+                    null
+                }
+            } else {
+                null
+            }
         } catch (_: Exception) {
             null
         }
@@ -138,7 +152,11 @@ object SafeerStoreCache {
         ramHome.put(kljuc, bundle)
         delavec.execute {
             try {
-                val datoteka = File(mapa() ?: return@execute, "home_${drzava.lowercase()}_${category.name.lowercase()}.json")
+                val datoteka =
+                    File(
+                        mapa() ?: return@execute,
+                        "home_${drzava.lowercase()}_${category.name.lowercase()}.json"
+                    )
                 datoteka.writeText(bundleVJson(bundle).toString())
                 obreziDiskovniPredpomnilnik()
             } catch (_: Exception) {}
@@ -167,7 +185,11 @@ object SafeerStoreCache {
         return null
     }
 
-    fun shraniTopChart(type: TopChartsContract.Type, chart: TopChartsContract.Chart, cluster: StreamCluster) {
+    fun shraniTopChart(
+        type: TopChartsContract.Type,
+        chart: TopChartsContract.Chart,
+        cluster: StreamCluster
+    ) {
         if (cluster.clusterAppList.isEmpty()) return
         val kljuc = kljucTopChart(type, chart)
         ramTopCharts.put(kljuc, cluster)
@@ -187,7 +209,8 @@ object SafeerStoreCache {
         val kljuc = "${drzava}_${kljucUrl(browseUrl)}"
         ramCategoryStreams.get(kljuc)?.let { return it }
         try {
-            val datoteka = File(mapa() ?: return StreamBundle.EMPTY, "cat_${kljuc.lowercase()}.json")
+            val datoteka =
+                File(mapa() ?: return StreamBundle.EMPTY, "cat_${kljuc.lowercase()}.json")
             if (datoteka.isFile && datoteka.length() > 0 && sveza(datoteka)) {
                 val bundle = bundleIzJson(JSONObject(datoteka.readText()))
                 if (bundle.hasCluster()) {
@@ -220,15 +243,23 @@ object SafeerStoreCache {
         val kljuc = "${drzava}_${type.name}"
         ramCategories.get(kljuc)?.let { return it }
         return try {
-            val datoteka = File(mapa() ?: return null, "categories_${drzava.lowercase()}_${type.name.lowercase()}.json")
+            val datoteka =
+                File(
+                    mapa() ?: return null,
+                    "categories_${drzava.lowercase()}_${type.name.lowercase()}.json"
+                )
             if (datoteka.isFile && datoteka.length() > 0 && sveza(datoteka)) {
                 val arr = JSONArray(datoteka.readText())
                 val list = List(arr.length()) { categoryIzJson(arr.getJSONObject(it)) }
                 if (list.isNotEmpty()) {
                     ramCategories.put(kljuc, list)
                     list
-                } else null
-            } else null
+                } else {
+                    null
+                }
+            } else {
+                null
+            }
         } catch (_: Exception) {
             null
         }
@@ -241,7 +272,11 @@ object SafeerStoreCache {
         ramCategories.put(kljuc, list)
         delavec.execute {
             try {
-                val datoteka = File(mapa() ?: return@execute, "categories_${drzava.lowercase()}_${type.name.lowercase()}.json")
+                val datoteka =
+                    File(
+                        mapa() ?: return@execute,
+                        "categories_${drzava.lowercase()}_${type.name.lowercase()}.json"
+                    )
                 val arr = JSONArray()
                 list.forEach { arr.put(categoryVJson(it)) }
                 datoteka.writeText(arr.toString())
@@ -350,6 +385,12 @@ object SafeerStoreCache {
         title = o.optString("title"),
         browseUrl = o.optString("browseUrl"),
         imageUrl = o.optString("imageUrl"),
-        type = try { Category.Type.valueOf(o.optString("type")) } catch (_: Exception) { Category.Type.APPLICATION }
+        type = try {
+            Category.Type.valueOf(o.optString("type"))
+        } catch (
+            _: Exception
+        ) {
+            Category.Type.APPLICATION
+        }
     )
 }

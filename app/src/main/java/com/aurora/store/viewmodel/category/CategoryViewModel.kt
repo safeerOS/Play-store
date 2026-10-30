@@ -30,6 +30,7 @@ import com.aurora.gplayapi.helpers.CategoryHelper
 import com.aurora.gplayapi.helpers.contracts.CategoryContract
 import com.aurora.store.AuroraApp
 import com.aurora.store.CategoryStash
+import com.aurora.store.data.cache.SafeerStoreCache
 import com.aurora.store.data.event.AuthEvent
 import com.aurora.store.data.model.ViewState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -53,24 +54,31 @@ class CategoryViewModel @Inject constructor(
 
     fun getCategoryList(type: Category.Type) {
         viewModelScope.launch(Dispatchers.IO) {
-            val categories = getCategories(type)
+            val obstojece = getCategories(type)
+            val predpomnjene = if (obstojece.isNotEmpty()) obstojece else SafeerStoreCache.beriKategorije(type).orEmpty()
 
-            if (categories.isNotEmpty()) {
+            if (predpomnjene.isNotEmpty()) {
+                stash[type] = predpomnjene
                 liveData.postValue(ViewState.Success(stash))
-                return@launch
+            } else {
+                liveData.postValue(ViewState.Loading)
             }
 
-            liveData.postValue(ViewState.Loading)
-
             try {
-                stash[type] = contract().getAllCategories(type)
-                liveData.postValue(ViewState.Success(stash))
+                val fresh = contract().getAllCategories(type)
+                if (fresh.isNotEmpty()) {
+                    stash[type] = fresh
+                    SafeerStoreCache.shraniKategorije(type, fresh)
+                    liveData.postValue(ViewState.Success(stash))
+                }
             } catch (exception: GooglePlayException.AuthException) {
                 Log.w(TAG, "Categories fetch returned ${exception.code}, redirecting to Splash")
                 AuroraApp.events.send(AuthEvent.SessionExpired())
             } catch (exception: Exception) {
                 Log.e(TAG, "Failed fetching list of categories", exception)
-                liveData.postValue(ViewState.Error(exception.message))
+                if (getCategories(type).isEmpty()) {
+                    liveData.postValue(ViewState.Error(exception.message))
+                }
             }
         }
     }

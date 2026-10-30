@@ -25,6 +25,7 @@ import com.aurora.gplayapi.data.models.StreamCluster
 import com.aurora.gplayapi.helpers.contracts.TopChartsContract
 import com.aurora.gplayapi.helpers.web.WebTopChartsHelper
 import com.aurora.store.TopChartStash
+import com.aurora.store.data.cache.SafeerStoreCache
 import com.aurora.store.data.model.ViewState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -48,20 +49,30 @@ class TopChartViewModel @Inject constructor(
         get() = webTopChartsHelper
 
     fun getStreamCluster(type: TopChartsContract.Type, chart: TopChartsContract.Chart) {
-        viewModelScope.launch(Dispatchers.IO) {
-            if (targetCluster(type, chart).clusterAppList.isNotEmpty()) {
-                _state.value = ViewState.Success(targetCluster(type, chart))
-                return@launch
-            }
-
+        val obstojec = targetCluster(type, chart)
+        val takoj = if (obstojec.clusterAppList.isNotEmpty()) obstojec else SafeerStoreCache.beriTopChart(type, chart)
+        if (takoj.clusterAppList.isNotEmpty()) {
+            stash.getOrPut(type) { mutableMapOf() }[chart] = takoj
+            _state.value = ViewState.Success(takoj)
+        } else {
             _state.value = ViewState.Loading
+        }
 
+        viewModelScope.launch(Dispatchers.IO) {
             try {
-                val cluster = topChartsContract.getCluster(type.value, chart.value)
-                updateCluster(type, chart, cluster)
-                _state.value = ViewState.Success(targetCluster(type, chart))
+                val cluster = kotlinx.coroutines.withTimeoutOrNull(8000L) {
+                    topChartsContract.getCluster(type.value, chart.value)
+                }
+                if (cluster != null && cluster.clusterAppList.isNotEmpty()) {
+                    updateCluster(type, chart, cluster)
+                    val posodobljen = targetCluster(type, chart)
+                    SafeerStoreCache.shraniTopChart(type, chart, posodobljen)
+                    _state.value = ViewState.Success(posodobljen)
+                }
             } catch (e: Exception) {
-                _state.value = ViewState.Error(e.message)
+                if (targetCluster(type, chart).clusterAppList.isEmpty()) {
+                    _state.value = ViewState.Error(e.message)
+                }
             }
         }
     }

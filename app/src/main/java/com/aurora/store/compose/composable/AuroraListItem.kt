@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,6 +64,7 @@ fun AuroraListItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = headline,
+                color = Color.White,
                 style = headlineStyle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -71,7 +73,7 @@ fun AuroraListItem(
                 Text(
                     text = supporting,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = Color(0xFFDEE4E1),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -80,7 +82,7 @@ fun AuroraListItem(
                 Text(
                     text = tertiary,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = Color(0xFF899390),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

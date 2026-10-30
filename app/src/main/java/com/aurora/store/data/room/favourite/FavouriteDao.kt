@@ -5,7 +5,16 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.Flow
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface FavouriteEntryPoint {
+    fun favouriteDao(): FavouriteDao
+}
 
 @Dao
 interface FavouriteDao {

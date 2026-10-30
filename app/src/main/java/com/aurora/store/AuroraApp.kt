@@ -71,6 +71,9 @@ class AuroraApp : Application(), Configuration.Provider, SingletonImageLoader.Fa
             .build()
 
     companion object {
+        lateinit var appContext: Context
+            private set
+
         var scope = MainScope()
             private set
 
@@ -79,6 +82,7 @@ class AuroraApp : Application(), Configuration.Provider, SingletonImageLoader.Fa
     }
 
     override fun onCreate() {
+        appContext = this
         ComposeMaterial3Flags.isCheckboxStylingFixEnabled = true
         super.onCreate()
         // Set the app theme
@@ -112,6 +116,16 @@ class AuroraApp : Application(), Configuration.Provider, SingletonImageLoader.Fa
         )
 
         CommonUtil.cleanupInstallationSessions(applicationContext)
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        com.aurora.store.data.cache.SafeerStoreCache.sprostiRam()
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        com.aurora.store.data.cache.SafeerStoreCache.sprostiRam()
     }
 
     override fun newImageLoader(context: Context): ImageLoader = ImageLoader(this).newBuilder()

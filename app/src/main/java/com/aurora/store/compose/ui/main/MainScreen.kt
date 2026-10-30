@@ -1,98 +1,115 @@
 /*
- * SPDX-FileCopyrightText: 2026 Aurora OSS
+ * SPDX-FileCopyrightText: 2026 Safeer OS & Aurora OSS
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 package com.aurora.store.compose.ui.main
 
-import androidx.annotation.DrawableRes
-import androidx.annotation.StringRes
+import android.view.KeyEvent
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aurora.extensions.requiresObbDir
+import com.aurora.gplayapi.data.models.Category
+import com.aurora.gplayapi.helpers.contracts.StreamContract
+import com.aurora.store.CategoryStash
 import com.aurora.store.MainViewModel
 import com.aurora.store.R
-import com.aurora.store.compose.composable.TopAppBar
+import com.aurora.store.compose.composable.SafeerStoreTopBar
 import com.aurora.store.compose.composable.TrackerUpdateWarningDialog
 import com.aurora.store.compose.composition.LocalNetworkStatus
 import com.aurora.store.compose.navigation.Destination
-import com.aurora.store.compose.ui.apps.AppsGamesScreen
+import com.aurora.store.compose.ui.apps.ForYouContent
+import com.aurora.store.compose.ui.apps.TopChartsContent
+import com.aurora.store.compose.ui.apps.category
+import com.aurora.store.compose.ui.commons.CategoryBrowseScreen
 import com.aurora.store.compose.ui.commons.MoreSheet
 import com.aurora.store.compose.ui.commons.NetworkScreen
+import com.aurora.store.compose.ui.favourite.FavouriteScreen
 import com.aurora.store.compose.ui.sheets.AppUpdateSheet
 import com.aurora.store.compose.ui.updates.UpdatesScreen
 import com.aurora.store.data.model.ExodusTracker
 import com.aurora.store.data.model.NetworkStatus
 import com.aurora.store.data.model.PermissionType
+import com.aurora.store.data.model.ViewState
 import com.aurora.store.data.providers.PermissionProvider.Companion.isGranted
 import com.aurora.store.data.room.update.Update
 import com.aurora.store.util.PackageUtil
 import com.aurora.store.util.Preferences
 import com.aurora.store.util.Preferences.PREFERENCE_UPDATES_WARN_TRACKERS
+import com.aurora.store.viewmodel.category.CategoryViewModel
+import com.aurora.store.viewmodel.homestream.StreamViewModel
+import com.aurora.store.viewmodel.topchart.TopChartViewModel
 import com.aurora.store.viewmodel.all.UpdatesViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-private enum class MainTab(
-    @StringRes val labelRes: Int,
-    @DrawableRes val iconRes: Int
-) {
-    APPS(R.string.title_apps, R.drawable.ic_apps),
-    GAMES(R.string.title_games, R.drawable.ic_games),
-    UPDATES(R.string.title_updates, R.drawable.ic_updates)
-}
-
 @Composable
 fun MainScreen(
-    initialTab: Int = 0,
+    initialTab: Int = 1,
     mainViewModel: MainViewModel = hiltViewModel(),
     updatesViewModel: UpdatesViewModel = hiltViewModel(),
+    streamViewModel: StreamViewModel = hiltViewModel(key = "main_stream"),
+    topChartViewModel: TopChartViewModel = hiltViewModel(key = "main_topchart"),
+    categoryViewModel: CategoryViewModel = hiltViewModel(key = "main_category"),
     onNavigateTo: (Destination) -> Unit = {}
 ) {
     val context = LocalContext.current
     val networkStatus = LocalNetworkStatus.current
-    val updates by mainViewModel.updateHelper.updates.collectAsStateWithLifecycle(
-        initialValue = null
-    )
+    val updates by mainViewModel.updateHelper.updates.collectAsStateWithLifecycle(initialValue = null)
     val updateCount = updates?.size ?: 0
     val downloads by updatesViewModel.downloadsList.collectAsStateWithLifecycle()
 
     val coroutineScope = rememberCoroutineScope()
-    val pagerState = rememberPagerState(
-        initialPage = initialTab.coerceIn(
-            0,
-            MainTab.entries.size - 1
-        )
-    ) {
-        MainTab.entries.size
+
+    // 1 = Igre (privzeto za igre), 0 = Aplikacije, 2 = Posodobitve
+    var selectedType by rememberSaveable {
+        mutableIntStateOf(if (initialTab == 2) 2 else if (initialTab == 0) 0 else 1)
     }
+    // 0 = Priporoceno, 1 = Brezplacne, 2 = V trendu, 3 = Donosne, 4 = Placljive
+    var selectedChartIndex by rememberSaveable { mutableIntStateOf(0) }
+    var selectedCategory by remember { mutableStateOf<Category?>(null) }
+
+    val topBarFocusRequester = remember { FocusRequester() }
+
+    // Nalaganje kategorij glede na tip (Igre ali Aplikacije)
+    val categoryType = if (selectedType == 1) Category.Type.GAME else Category.Type.APPLICATION
+    LaunchedEffect(categoryType) {
+        categoryViewModel.getCategoryList(categoryType)
+    }
+
+    val categoryState by categoryViewModel.liveData.observeAsState()
+    @Suppress("UNCHECKED_CAST")
+    val categoryStash = (categoryState as? ViewState.Success<*>)?.data as? CategoryStash
+    val categories = categoryStash?.get(categoryType).orEmpty()
 
     var showMoreSheet by remember { mutableStateOf(false) }
     var appUpdateTarget by remember { mutableStateOf<Update?>(null) }
@@ -101,8 +118,6 @@ fun MainScreen(
     }
     val checkingJobs = remember { mutableStateMapOf<String, Job>() }
 
-    // Once the download a check kicked off actually appears, drop the "checking" marker so the
-    // item's in-progress state is driven purely by the download (no flash back to "Update").
     LaunchedEffect(downloads) {
         checkingJobs.keys.toList().forEach { pkg ->
             if (downloads.any { it.packageName == pkg && !it.isFinished }) {
@@ -144,86 +159,73 @@ fun MainScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = stringResource(MainTab.entries[pagerState.currentPage].labelRes),
-                showNavigationIcon = false,
-                actions = {
-                    IconButton(onClick = { onNavigateTo(Destination.Downloads) }) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_download_manager),
-                            contentDescription = stringResource(R.string.title_download_manager)
-                        )
-                    }
-                    IconButton(onClick = { showMoreSheet = true }) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_settings_account),
-                            contentDescription = stringResource(R.string.title_more)
-                        )
-                    }
-                }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { onNavigateTo(Destination.Search) }) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_round_search),
-                    contentDescription = stringResource(R.string.action_search)
-                )
+    // Korenski kontejner s Safeer ozadjem Pokrajina in zatemnitvijo
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .onKeyEvent { keyEvent ->
+                // Dolgi pritisk tipke GOR kjerkoli nas takoj vrne v zgornjo vrstico
+                if (keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+                    if (keyEvent.nativeKeyEvent.isLongPress || (keyEvent.type == KeyEventType.KeyDown && keyEvent.nativeKeyEvent.repeatCount > 0)) {
+                        topBarFocusRequester.requestFocus()
+                        true
+                    } else false
+                } else false
             }
-        },
-        bottomBar = {
-            NavigationBar {
-                MainTab.entries.forEachIndexed { index, tab ->
-                    NavigationBarItem(
-                        selected = pagerState.currentPage == index,
-                        onClick = {
-                            coroutineScope.launch { pagerState.animateScrollToPage(index) }
-                        },
-                        icon = {
-                            if (tab == MainTab.UPDATES && updateCount > 0) {
-                                BadgedBox(badge = { Badge { Text("$updateCount") } }) {
-                                    Icon(
-                                        painter = painterResource(tab.iconRes),
-                                        contentDescription = null
-                                    )
-                                }
-                            } else {
-                                Icon(
-                                    painter = painterResource(tab.iconRes),
-                                    contentDescription = null
-                                )
-                            }
-                        },
-                        label = { Text(stringResource(tab.labelRes)) }
-                    )
-                }
-            }
-        }
-    ) { paddingValues ->
+    ) {
+        // Ozadje Pokrajina (slika gora iz Safeer OS)
+        Image(
+            painter = painterResource(R.drawable.bg_pokrajina),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+
+        // Mirna Safeer zatemnitev (#0D1214) za vrhunsko berljivost
         Box(
             modifier = Modifier
-                .padding(paddingValues)
-                .consumeWindowInsets(paddingValues)
                 .fillMaxSize()
-        ) {
-            HorizontalPager(
-                state = pagerState,
-                userScrollEnabled = false,
-                beyondViewportPageCount = MainTab.entries.size - 1,
-                modifier = Modifier.fillMaxSize()
-            ) { page ->
-                when (MainTab.entries[page]) {
-                    MainTab.APPS -> AppsGamesScreen(
-                        pageType = 0,
-                        onNavigateTo = onNavigateTo
-                    )
-                    MainTab.GAMES -> AppsGamesScreen(
-                        pageType = 1,
-                        onNavigateTo = ::handleNavigation
-                    )
-                    MainTab.UPDATES -> {
+                .background(Color(0xEA0D1214))
+        )
+
+        // Scaffold brez spodnje vrstice in brez floating action buttona
+        Scaffold(
+            containerColor = Color.Transparent,
+            contentColor = Color.White,
+            topBar = {
+                SafeerStoreTopBar(
+                    selectedType = selectedType,
+                    selectedChartIndex = selectedChartIndex,
+                    selectedCategory = selectedCategory,
+                    categories = categories,
+                    updateCount = updateCount,
+                    firstItemFocusRequester = topBarFocusRequester,
+                    onTypeSelected = { newType ->
+                        selectedType = newType
+                        selectedCategory = null
+                    },
+                    onChartSelected = { newChart ->
+                        selectedChartIndex = newChart
+                        selectedCategory = null
+                    },
+                    onCategorySelected = { newCat ->
+                        selectedCategory = newCat
+                    },
+                    onSearchClick = { onNavigateTo(Destination.Search) },
+                    onDownloadsClick = { onNavigateTo(Destination.Downloads) },
+                    onMoreClick = { showMoreSheet = true }
+                )
+            }
+        ) { paddingValues ->
+            CompositionLocalProvider(LocalContentColor provides Color.White) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                ) {
+                when {
+                    // 1) Posodobitve
+                    selectedType == 2 -> {
                         fun performUpdate(update: Update) {
                             if (update.fileList.requiresObbDir() &&
                                 !isGranted(context, PermissionType.STORAGE_MANAGER)
@@ -300,9 +302,53 @@ fun MainScreen(
                             checkingPackages = checkingJobs.keys
                         )
                     }
+
+                    // 2) Izbrana posamezna zvrst (npr. Akcija, Strategije, Uganke...)
+                    selectedCategory != null -> {
+                        CategoryBrowseScreen(
+                            title = selectedCategory!!.title,
+                            browseUrl = selectedCategory!!.browseUrl,
+                            onNavigateTo = onNavigateTo
+                        )
+                    }
+
+                    // 3) Priljubljene aplikacije (❤️ Priljubljene - index 1)
+                    selectedChartIndex == 1 -> {
+                        FavouriteScreen(
+                            onNavigateTo = onNavigateTo
+                        )
+                    }
+
+                    // 4) Vse zvrsti -> Lestvice (Top Free, Trending, Top Grossing, Top Paid - index >= 2)
+                    selectedChartIndex >= 2 -> {
+                        TopChartsContent(
+                            pageType = selectedType,
+                            viewModel = topChartViewModel,
+                            forcedChartIndex = selectedChartIndex - 2,
+                            showTabs = false,
+                            onAppClick = { onNavigateTo(Destination.AppDetails(it.packageName)) }
+                        )
+                    }
+
+                    // 4) Vse zvrsti -> Priporoceno (Za vas)
+                    else -> {
+                        ForYouContent(
+                            pageType = selectedType,
+                            viewModel = streamViewModel,
+                            onAppClick = { onNavigateTo(Destination.AppDetails(it.packageName)) },
+                            onHeaderClick = { onNavigateTo(Destination.StreamBrowse(it)) },
+                            onClusterScrolled = { cluster ->
+                                streamViewModel.observeCluster(category(selectedType), cluster)
+                            },
+                            onScrolledToEnd = {
+                                streamViewModel.observe(category(selectedType), StreamContract.Type.HOME)
+                            }
+                        )
+                    }
                 }
             }
         }
+    }
     }
 
     trackerWarning?.let { (update, trackers) ->

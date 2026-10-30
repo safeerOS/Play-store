@@ -30,6 +30,7 @@ import com.aurora.gplayapi.helpers.contracts.StreamContract
 import com.aurora.gplayapi.helpers.web.WebStreamHelper
 import com.aurora.store.HomeStash
 import com.aurora.store.data.model.ViewState
+import com.aurora.store.data.cache.SafeerStoreCache
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -53,7 +54,16 @@ class StreamViewModel @Inject constructor(
     private val stashMutex = Mutex()
 
     fun getStreamBundle(category: StreamContract.Category, type: StreamContract.Type) {
-        liveData.postValue(ViewState.Loading)
+        // Enaka logika kot pri filmih in serijah:
+        // 1. Če imamo pogled v RAM ali na disku, ga prikažemo takoj (0 ms)!
+        val predpomnjen = stash[category] ?: SafeerStoreCache.beriHomeBundle(category)
+        if (predpomnjen != null && predpomnjen.hasCluster()) {
+            stash[category] = predpomnjen
+            liveData.postValue(ViewState.Success(stash.toMap()))
+        } else {
+            liveData.postValue(ViewState.Loading)
+        }
+        // 2. V ozadju pridobimo sveže podatke z omrežja
         observe(category, type)
     }
 
@@ -85,6 +95,7 @@ class StreamViewModel @Inject constructor(
                             streamNextPageUrl = newBundle.streamNextPageUrl
                         )
                         stash[category] = mergedBundle
+                        SafeerStoreCache.shraniHomeBundle(category, mergedBundle)
 
                         // Post updated to UI
                         liveData.postValue(ViewState.Success(stash.toMap()))
@@ -93,7 +104,10 @@ class StreamViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                liveData.postValue(ViewState.Error(e.message))
+                // Če imamo že naložene podatke z diska, ob izgubi omrežja pogled ostane nemoten
+                if (!targetBundle(category).hasCluster()) {
+                    liveData.postValue(ViewState.Error(e.message))
+                }
             }
         }
     }

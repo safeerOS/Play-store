@@ -123,7 +123,7 @@ fun AppDetailsScreen(
     packageName: String,
     onNavigateTo: (Destination) -> Unit,
     viewModel: AppDetailsViewModel = hiltViewModel(key = packageName),
-    forceSinglePane: Boolean = false
+    forceSinglePane: Boolean = true
 ) {
     val context = LocalContext.current
 

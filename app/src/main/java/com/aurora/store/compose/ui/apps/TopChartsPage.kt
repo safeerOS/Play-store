@@ -41,6 +41,9 @@ import com.aurora.gplayapi.helpers.contracts.TopChartsContract
 import com.aurora.store.R
 import com.aurora.store.compose.composable.Placeholder
 import com.aurora.store.compose.composable.ShimmerAppRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.unit.dp
+import com.aurora.store.compose.composable.app.AppListItem
 import com.aurora.store.compose.composable.app.LargeAppListItem
 import com.aurora.store.compose.preview.AppPreviewProvider
 import com.aurora.store.compose.preview.ThemePreviewProvider
@@ -54,6 +57,8 @@ private const val LOAD_MORE_THRESHOLD = 2
 internal fun TopChartsContent(
     pageType: Int,
     viewModel: TopChartViewModel,
+    forcedChartIndex: Int? = null,
+    showTabs: Boolean = true,
     onAppClick: (App) -> Unit
 ) {
     val charts = listOf(
@@ -70,13 +75,14 @@ internal fun TopChartsContent(
     )
     val chartType =
         if (pageType == 1) TopChartsContract.Type.GAME else TopChartsContract.Type.APPLICATION
-    var selectedIndex by rememberSaveable { mutableIntStateOf(0) }
+    var internalSelectedIndex by rememberSaveable { mutableIntStateOf(0) }
+    val selectedIndex = forcedChartIndex?.coerceIn(0, charts.size - 1) ?: internalSelectedIndex
     val selectedChart = charts[selectedIndex]
     val state by viewModel.state.collectAsStateWithLifecycle()
     val cluster = state.getDataAs<StreamCluster?>()
     val listState = rememberLazyListState()
 
-    LaunchedEffect(selectedIndex) {
+    LaunchedEffect(selectedIndex, pageType) {
         listState.scrollToItem(0)
         viewModel.getStreamCluster(chartType, selectedChart)
     }
@@ -100,7 +106,8 @@ internal fun TopChartsContent(
         state = state,
         cluster = cluster,
         listState = listState,
-        onTabSelected = { selectedIndex = it },
+        showTabs = showTabs,
+        onTabSelected = { internalSelectedIndex = it },
         onRetry = { viewModel.getStreamCluster(chartType, selectedChart) },
         onAppClick = onAppClick
     )
@@ -113,6 +120,7 @@ private fun TopChartsBody(
     state: ViewState,
     cluster: StreamCluster?,
     listState: LazyListState = rememberLazyListState(),
+    showTabs: Boolean = true,
     onTabSelected: (Int) -> Unit = {},
     onRetry: () -> Unit = {},
     onAppClick: (App) -> Unit = {}
@@ -120,16 +128,18 @@ private fun TopChartsBody(
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        SecondaryScrollableTabRow(
-            selectedTabIndex = selectedIndex,
-            edgePadding = dimensionResource(R.dimen.spacing_small)
-        ) {
-            chartTitles.forEachIndexed { index, titleRes ->
-                Tab(
-                    selected = selectedIndex == index,
-                    onClick = { onTabSelected(index) },
-                    text = { Text(stringResource(titleRes)) }
-                )
+        if (showTabs) {
+            SecondaryScrollableTabRow(
+                selectedTabIndex = selectedIndex,
+                edgePadding = dimensionResource(R.dimen.spacing_small)
+            ) {
+                chartTitles.forEachIndexed { index, titleRes ->
+                    Tab(
+                        selected = selectedIndex == index,
+                        onClick = { onTabSelected(index) },
+                        text = { Text(stringResource(titleRes)) }
+                    )
+                }
             }
         }
 
@@ -150,23 +160,31 @@ private fun TopChartsBody(
 
             cluster != null -> {
                 val apps = cluster.clusterAppList
+                val chunked = remember(apps) { apps.chunked(7) }
                 LazyColumn(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
                     state = listState,
                     contentPadding = PaddingValues(
-                        vertical = dimensionResource(R.dimen.spacing_small)
+                        horizontal = 16.dp,
+                        vertical = 8.dp
                     ),
-                    verticalArrangement = Arrangement.spacedBy(
-                        dimensionResource(R.dimen.spacing_xsmall)
-                    )
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(count = apps.size, key = { apps[it].id }) { index ->
-                        LargeAppListItem(
-                            app = apps[index],
-                            onClick = { onAppClick(apps[index]) }
-                        )
+                    items(count = chunked.size, key = { "chart_row_$it" }) { rowIndex ->
+                        val rowApps = chunked[rowIndex]
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            rowApps.forEach { app ->
+                                AppListItem(
+                                    app = app,
+                                    onClick = { onAppClick(app) }
+                                )
+                            }
+                        }
                     }
                     if (cluster.hasNext()) {
                         item(key = "progress") {

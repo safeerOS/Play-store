@@ -12,6 +12,7 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -29,14 +30,11 @@ import androidx.compose.material3.ExpandedDockedSearchBar
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.SearchBarValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.layout.AnimatedPane
-import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
-import androidx.compose.material3.adaptive.navigation.NavigableListDetailPaneScaffold
-import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -51,6 +49,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
@@ -87,7 +87,10 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 @Composable
-fun SearchScreen(viewModel: SearchViewModel = hiltViewModel()) {
+fun SearchScreen(
+    viewModel: SearchViewModel = hiltViewModel(),
+    onNavigateTo: (Destination) -> Unit = {}
+) {
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
     val results = viewModel.apps.collectAsLazyPagingItems()
 
@@ -101,7 +104,8 @@ fun SearchScreen(viewModel: SearchViewModel = hiltViewModel()) {
         onSearch = onSearchCallback,
         onFetchSuggestions = onFetchSuggestionsCallback,
         onFilter = { filter -> viewModel.filterResults(filter) },
-        isAnonymous = viewModel.authProvider.isAnonymous
+        isAnonymous = viewModel.authProvider.isAnonymous,
+        onNavigateTo = onNavigateTo
     )
 }
 
@@ -112,25 +116,21 @@ private fun ScreenContent(
     onFetchSuggestions: (String) -> Unit = {},
     onSearch: (String) -> Unit = {},
     onFilter: (filter: SearchFilter) -> Unit = {},
-    isAnonymous: Boolean = true
+    isAnonymous: Boolean = true,
+    onNavigateTo: (Destination) -> Unit = {}
 ) {
     val activity = LocalActivity.current as? ComponentActivity
     val textFieldState = rememberTextFieldState()
     val searchBarState = rememberSearchBarState(initialValue = SearchBarValue.Expanded)
     var isSearching by rememberSaveable { mutableStateOf(false) }
 
-    val scaffoldNavigator = rememberListDetailPaneScaffoldNavigator<String>()
     val coroutineScope = rememberCoroutineScope()
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
 
     LaunchedEffect(key1 = textFieldState) {
         snapshotFlow { textFieldState.text.toString() }
             .collectLatest { query -> onFetchSuggestions(query) }
-    }
-
-    fun showDetailPane(packageName: String) {
-        coroutineScope.launch {
-            scaffoldNavigator.navigateTo(ListDetailPaneScaffoldRole.Detail, packageName)
-        }
     }
 
     fun onRequestSearch(query: String) {
@@ -138,6 +138,8 @@ private fun ScreenContent(
         if (textFieldState.text.toString() != trimmed) {
             textFieldState.setTextAndPlaceCursorAtEnd(trimmed)
         }
+        keyboardController?.hide()
+        focusManager.clearFocus()
         onSearch(trimmed)
         isSearching = true
         coroutineScope.launch { searchBarState.animateToCollapsed() }
@@ -257,7 +259,7 @@ private fun ScreenContent(
                                         results[index]?.let { app ->
                                             LargeAppListItem(
                                                 app = app,
-                                                onClick = { showDetailPane(app.packageName) }
+                                                onClick = { onNavigateTo(Destination.AppDetails(app.packageName)) }
                                             )
                                         }
                                     }
@@ -274,39 +276,13 @@ private fun ScreenContent(
         }
     }
 
-    @Composable
-    fun DetailPane() {
-        with(scaffoldNavigator.currentDestination?.contentKey) {
-            when {
-                this != null -> {
-                    AppDetailsScreen(
-                        packageName = this,
-                        onNavigateTo = { destination ->
-                            if (destination is Destination.AppDetails) {
-                                showDetailPane(destination.packageName)
-                            }
-                        },
-                        forceSinglePane = true
-                    )
-                }
-
-                else -> {
-                    if (isSearching && results.itemCount > 0) {
-                        Placeholder(
-                            painter = painterResource(R.drawable.ic_round_search),
-                            message = stringResource(R.string.select_app_for_details)
-                        )
-                    }
-                }
-            }
-        }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        ListPane()
     }
-
-    NavigableListDetailPaneScaffold(
-        navigator = scaffoldNavigator,
-        listPane = { AnimatedPane { ListPane() } },
-        detailPane = { AnimatedPane { DetailPane() } }
-    )
 }
 
 @Composable

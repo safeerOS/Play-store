@@ -76,14 +76,12 @@ fun AuroraTheme(content: @Composable () -> Unit) {
 
     val colorScheme = when (themeStyle) {
         1 -> lightScheme
-        2 -> darkScheme
-        else -> if (isSystemInDarkTheme()) darkScheme else lightScheme
+        else -> darkScheme
     }
 
     val darkTheme = when (themeStyle) {
         1 -> false
-        2 -> true
-        else -> isSystemInDarkTheme()
+        else -> true
     }
 
     /**

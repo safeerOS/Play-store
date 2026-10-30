@@ -16,6 +16,7 @@ import com.aurora.gplayapi.helpers.contracts.CategoryStreamContract
 import com.aurora.gplayapi.helpers.contracts.StreamContract
 import com.aurora.gplayapi.helpers.web.WebCategoryStreamHelper
 import com.aurora.store.data.model.ViewState
+import com.aurora.store.data.cache.SafeerStoreCache
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -46,34 +47,52 @@ class CategoryStreamViewModel @AssistedInject constructor(
     private var streamBundle = StreamBundle.EMPTY
 
     init {
+        val predpomnjen = SafeerStoreCache.beriCategoryBundle(browseUrl)
+        if (predpomnjen.hasCluster()) {
+            streamBundle = predpomnjen
+            _viewState.value = ViewState.Success(predpomnjen)
+        }
         fetch()
     }
 
     fun fetch() {
+        if (!streamBundle.hasCluster()) {
+            val predpomnjen = SafeerStoreCache.beriCategoryBundle(browseUrl)
+            if (predpomnjen.hasCluster()) {
+                streamBundle = predpomnjen
+                _viewState.value = ViewState.Success(predpomnjen)
+            }
+        }
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 if (!streamBundle.hasCluster() || streamBundle.hasNext()) {
-                    val newBundle = if (streamBundle.streamClusters.isEmpty()) {
-                        categoryStreamContract.fetch(browseUrl)
-                    } else {
-                        categoryStreamContract.nextStreamBundle(
-                            streamBundle.id,
-                            StreamContract.Category.NONE,
-                            streamBundle.streamNextPageUrl
-                        )
+                    val newBundle = kotlinx.coroutines.withTimeoutOrNull(8000L) {
+                        if (streamBundle.streamClusters.isEmpty()) {
+                            categoryStreamContract.fetch(browseUrl)
+                        } else {
+                            categoryStreamContract.nextStreamBundle(
+                                streamBundle.id,
+                                StreamContract.Category.NONE,
+                                streamBundle.streamNextPageUrl
+                            )
+                        }
                     }
 
-                    streamBundle = streamBundle.copy(
-                        streamClusters = streamBundle.streamClusters + newBundle.streamClusters,
-                        streamNextPageUrl = newBundle.streamNextPageUrl
-                    )
-
-                    _viewState.value = ViewState.Success(streamBundle)
+                    if (newBundle != null && newBundle.hasCluster()) {
+                        streamBundle = streamBundle.copy(
+                            streamClusters = streamBundle.streamClusters + newBundle.streamClusters,
+                            streamNextPageUrl = newBundle.streamNextPageUrl
+                        )
+                        SafeerStoreCache.shraniCategoryBundle(browseUrl, streamBundle)
+                        _viewState.value = ViewState.Success(streamBundle)
+                    }
                 } else {
                     Log.i(TAG, "End of Bundle")
                 }
             } catch (e: Exception) {
-                _viewState.value = ViewState.Error(e.message)
+                if (!streamBundle.hasCluster()) {
+                    _viewState.value = ViewState.Error(e.message)
+                }
             }
         }
     }

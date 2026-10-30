@@ -6,7 +6,6 @@
 
 package com.aurora.store.compose.composable
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,18 +19,22 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewWrapper
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.aurora.store.R
 import com.aurora.store.compose.preview.ThemePreviewProvider
 
 /**
- * Section header row used throughout the app. Title with optional subtitle, an optional
- * trailing slot, and the whole row becomes clickable when [onClick] is non-null. When
- * [trailing] is null and [onClick] is set, a default right-chevron is shown.
+ * Section header in Safeer Media Center style:
+ * Clean, non-focusable title for rows. D-pad moves directly down to cards without
+ * double focus outline or header trapping.
  */
 @Composable
 fun SectionHeader(
@@ -44,10 +47,9 @@ fun SectionHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(
-                horizontal = dimensionResource(R.dimen.spacing_medium),
-                vertical = dimensionResource(R.dimen.spacing_xsmall)
+                horizontal = 16.dp,
+                vertical = 6.dp
             ),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -55,7 +57,9 @@ fun SectionHeader(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
+                color = Color.White,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -63,20 +67,14 @@ fun SectionHeader(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = Color(0xFFDEE4E1),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }
         }
-        when {
-            trailing != null -> trailing()
-            onClick != null -> Icon(
-                painter = painterResource(R.drawable.ic_arrow_right),
-                contentDescription = null,
-                modifier = Modifier.size(dimensionResource(R.dimen.icon_size_default)),
-                tint = MaterialTheme.colorScheme.primary
-            )
+        if (trailing != null) {
+            trailing()
         }
     }
 }

@@ -25,6 +25,7 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <!-- Brand accent for devices without dynamic color (Android 11 and below) -->
         <item name="colorPrimary">@color/colorAccent</item>
+        <item name="android:defaultFocusHighlightEnabled">false</item>
     </style>
 
     <style name="AppTheme.Translucent" parent="Theme.Material3.DynamicColors.DayNight.NoActionBar">

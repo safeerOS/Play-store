@@ -6,13 +6,18 @@
 package com.aurora.store.compose.composable
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -85,6 +90,14 @@ fun StreamCarousel(
         return
     }
 
+    val singleClusterApps = remember(clusters) {
+        if (clusters.size == 1) {
+            clusters.first().clusterAppList.distinctBy { it.packageName }
+        } else {
+            emptyList()
+        }
+    }
+
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         state = lazyListState,
@@ -99,12 +112,22 @@ fun StreamCarousel(
         )
     ) {
         if (clusters.size == 1) {
-            val apps = clusters.first().clusterAppList
-            items(count = apps.size, key = { apps[it].id }) { index ->
-                LargeAppListItem(
-                    app = apps[index],
-                    onClick = { onAppClick(apps[index]) }
-                )
+            val chunkedSingle = singleClusterApps.chunked(7)
+            items(count = chunkedSingle.size, key = { "single_row_$it" }) { rowIndex ->
+                val rowApps = chunkedSingle[rowIndex]
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 5.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    for (app in rowApps) {
+                        AppListItem(
+                            app = app,
+                            onClick = { onAppClick(app) }
+                        )
+                    }
+                }
             }
         } else {
             clusters.forEach { cluster ->
@@ -140,35 +163,32 @@ internal fun ClusterRow(
     onAppClick: (App) -> Unit = {},
     onClusterScrolled: (StreamCluster) -> Unit = {}
 ) {
-    val rowState = rememberLazyListState()
-    val reachedEnd by remember {
-        derivedStateOf {
-            val last = rowState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
-            val total = rowState.layoutInfo.totalItemsCount
-            last >= total - LOAD_MORE_THRESHOLD
-        }
+    val uniqueApps = remember(cluster.clusterAppList) {
+        cluster.clusterAppList.distinctBy { it.packageName }
     }
 
-    LaunchedEffect(reachedEnd) {
-        if (reachedEnd && cluster.hasNext()) onClusterScrolled(cluster)
+    val chunkedApps = remember(uniqueApps) {
+        uniqueApps.chunked(7)
     }
 
-    LazyRow(
-        state = rowState,
-        contentPadding = PaddingValues(horizontal = dimensionResource(R.dimen.spacing_small)),
-        horizontalArrangement = Arrangement.spacedBy(dimensionResource(R.dimen.spacing_small))
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        itemsIndexed(
-            items = cluster.clusterAppList,
-            key = { _, app -> app.packageName }
-        ) { _, app ->
-            AppListItem(
-                app = app,
-                onClick = { onAppClick(app) }
-            )
-        }
-        if (cluster.hasNext()) {
-            item(key = "shimmer_${cluster.id}") { ShimmerAppListItem() }
+        for (rowApps in chunkedApps) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                for (app in rowApps) {
+                    AppListItem(
+                        app = app,
+                        onClick = { onAppClick(app) }
+                    )
+                }
+            }
         }
     }
 }

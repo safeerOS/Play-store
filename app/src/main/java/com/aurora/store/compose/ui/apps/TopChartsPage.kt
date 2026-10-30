@@ -83,8 +83,9 @@ internal fun TopChartsContent(
     val listState = rememberLazyListState()
 
     LaunchedEffect(selectedIndex, pageType) {
-        listState.scrollToItem(0)
         viewModel.getStreamCluster(chartType, selectedChart)
+        // Seznam, ki se ni na zaslonu (nalaganje), bi scrollToItem cakal v nedogled.
+        if (listState.layoutInfo.totalItemsCount > 0) listState.scrollToItem(0)
     }
 
     val reachedEnd by remember {

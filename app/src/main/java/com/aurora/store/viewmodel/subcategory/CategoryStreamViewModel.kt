@@ -45,6 +45,9 @@ class CategoryStreamViewModel @AssistedInject constructor(
         get() = webCategoryStreamHelper
 
     private var streamBundle = StreamBundle.EMPTY
+    @Volatile private var svezaPrva = false
+    @Volatile private var nalagam = false
+    private var cakanje: kotlinx.coroutines.Job? = null
 
     init {
         val predpomnjen = SafeerStoreCache.beriCategoryBundle(browseUrl)
@@ -63,26 +66,39 @@ class CategoryStreamViewModel @AssistedInject constructor(
                 _viewState.value = ViewState.Success(predpomnjen)
             }
         }
+        if (!streamBundle.hasCluster()) {
+            _viewState.value = ViewState.Loading
+            cakanje?.cancel()
+            cakanje = viewModelScope.launch {
+                kotlinx.coroutines.delay(15_000L)
+                if (!streamBundle.hasCluster()) _viewState.value = ViewState.Error(null)
+            }
+        }
+        if (nalagam) return
+        nalagam = true
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                if (!streamBundle.hasCluster() || streamBundle.hasNext()) {
-                    val newBundle = kotlinx.coroutines.withTimeoutOrNull(8000L) {
-                        if (streamBundle.streamClusters.isEmpty()) {
-                            categoryStreamContract.fetch(browseUrl)
-                        } else {
-                            categoryStreamContract.nextStreamBundle(
-                                streamBundle.id,
-                                StreamContract.Category.NONE,
-                                streamBundle.streamNextPageUrl
-                            )
-                        }
+                if (!svezaPrva || streamBundle.hasNext()) {
+                    // Prva stran zvrsti vedno sveza iz Trgovine (predpomnjena je samo za takojsen prikaz);
+                    // pozen odgovor ne zavrzemo - pokaze se, ko pride.
+                    val prva = !svezaPrva
+                    val newBundle = if (prva) {
+                        categoryStreamContract.fetch(browseUrl)
+                    } else {
+                        categoryStreamContract.nextStreamBundle(
+                            streamBundle.id,
+                            StreamContract.Category.NONE,
+                            streamBundle.streamNextPageUrl
+                        )
                     }
 
-                    if (newBundle != null && newBundle.hasCluster()) {
-                        streamBundle = streamBundle.copy(
+                    if (newBundle.hasCluster()) {
+                        streamBundle = if (prva) newBundle else streamBundle.copy(
                             streamClusters = streamBundle.streamClusters + newBundle.streamClusters,
                             streamNextPageUrl = newBundle.streamNextPageUrl
                         )
+                        svezaPrva = true
+                        cakanje?.cancel()
                         SafeerStoreCache.shraniCategoryBundle(browseUrl, streamBundle)
                         _viewState.value = ViewState.Success(streamBundle)
                     }
@@ -91,8 +107,11 @@ class CategoryStreamViewModel @AssistedInject constructor(
                 }
             } catch (e: Exception) {
                 if (!streamBundle.hasCluster()) {
+                    cakanje?.cancel()
                     _viewState.value = ViewState.Error(e.message)
                 }
+            } finally {
+                nalagam = false
             }
         }
     }

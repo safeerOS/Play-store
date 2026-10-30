@@ -324,7 +324,14 @@ fun MainScreen(
                         TopChartsContent(
                             pageType = selectedType,
                             viewModel = topChartViewModel,
-                            forcedChartIndex = selectedChartIndex - 2,
+                            // Meni: 2 brezplacne, 3 v trendu, 4 donos, 5 placljive;
+                            // TopChartsContent: 0 brezplacne, 1 donos, 2 v trendu, 3 placljive.
+                            forcedChartIndex = when (selectedChartIndex) {
+                                3 -> 2
+                                4 -> 1
+                                5 -> 3
+                                else -> 0
+                            },
                             showTabs = false,
                             onAppClick = { onNavigateTo(Destination.AppDetails(it.packageName)) }
                         )

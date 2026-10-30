@@ -99,124 +99,6 @@ object SafeerStoreCache {
     private fun kljucUrl(url: String): String =
         url.replace(Regex("[^a-zA-Z0-9_]"), "_").takeLast(64).lowercase()
 
-    // --- ZASILNI SEZNAMI PRILAGOJENI ZA DRŽAVO UPORABNIKA ---
-
-    private fun zasilnaApp(pkg: String, ime: String, razvijalec: String): App = App(
-        id = pkg.hashCode(),
-        packageName = pkg,
-        displayName = ime,
-        developerName = razvijalec,
-        iconArtwork = Artwork(url = "")
-    )
-
-    private fun lokaliziraneAplikacijeZaDrzavo(drzava: String): List<App> {
-        return when (drzava) {
-            "SI" -> listOf(
-                zasilnaApp("si.rtvslo.rtv365", "RTV 365", "RTV Slovenija"),
-                zasilnaApp("si.proplus.voyo", "VOYO.si", "Pro Plus d.o.o."),
-                zasilnaApp("com.ug.eon.android.tv", "EON TV", "United Group B.V."),
-                zasilnaApp("net.marand.tv2go.client.tv", "T-2 tv2go", "T-2 d.o.o."),
-                zasilnaApp("com.a1.xploretv.si", "A1 Xplore TV SI", "A1 Slovenija"),
-                zasilnaApp("si.telekom.neo.android.tv", "NEO TV Lite", "Telekom Slovenije"),
-                zasilnaApp("com.google.android.youtube.tv", "YouTube TV", "Google LLC"),
-                zasilnaApp("org.videolan.vlc", "VLC for Android", "Videolabs"),
-                zasilnaApp("org.xbmc.kodi", "Kodi", "Kodi Foundation"),
-                zasilnaApp("com.netflix.ninja", "Netflix", "Netflix, Inc.")
-            )
-            "HR" -> listOf(
-                zasilnaApp("hr.hrt.hrti.ott", "HRTi OTT", "Hrvatska radiotelevizija"),
-                zasilnaApp("hr.t.ht.maxtv.ott.tv", "MAXtv to Go", "Hrvatski Telekom"),
-                zasilnaApp("hr.rtl.play", "Voyo HR", "RTL Hrvatska"),
-                zasilnaApp("com.ug.eon.android.tv", "EON TV", "United Group B.V."),
-                zasilnaApp("com.a1.xploretv.hr", "A1 Xplore TV HR", "A1 Hrvatska"),
-                zasilnaApp("com.google.android.youtube.tv", "YouTube TV", "Google LLC"),
-                zasilnaApp("org.videolan.vlc", "VLC for Android", "Videolabs"),
-                zasilnaApp("org.xbmc.kodi", "Kodi", "Kodi Foundation"),
-                zasilnaApp("com.netflix.ninja", "Netflix", "Netflix, Inc.")
-            )
-            "DE", "AT", "CH" -> listOf(
-                zasilnaApp("de.swr.avp.ard.tv", "ARD Mediathek", "ARD Online"),
-                zasilnaApp("com.zdf.android.mediathek.tv", "ZDFmediathek", "ZDF"),
-                zasilnaApp("de.prosiebensat1digital.joyn", "Joyn", "Joyn GmbH"),
-                zasilnaApp("de.cbc.videoplus", "RTL+", "RTL interactive GmbH"),
-                zasilnaApp("at.orf.tvthek", "ORF ON", "ORF"),
-                zasilnaApp("com.google.android.youtube.tv", "YouTube TV", "Google LLC"),
-                zasilnaApp("org.videolan.vlc", "VLC for Android", "Videolabs"),
-                zasilnaApp("org.xbmc.kodi", "Kodi", "Kodi Foundation"),
-                zasilnaApp("com.netflix.ninja", "Netflix", "Netflix, Inc.")
-            )
-            else -> listOf(
-                zasilnaApp("com.google.android.youtube.tv", "YouTube TV", "Google LLC"),
-                zasilnaApp("com.netflix.ninja", "Netflix", "Netflix, Inc."),
-                zasilnaApp("com.disney.disneyplus", "Disney+", "Disney"),
-                zasilnaApp("com.spotify.tv.android", "Spotify", "Spotify AB"),
-                zasilnaApp("org.videolan.vlc", "VLC for Android", "Videolabs"),
-                zasilnaApp("org.xbmc.kodi", "Kodi", "Kodi Foundation"),
-                zasilnaApp("com.plexapp.android", "Plex", "Plex, Inc."),
-                zasilnaApp("tv.twitch.android.app", "Twitch", "Twitch Interactive, Inc.")
-            )
-        }
-    }
-
-    // --- ZASILNI TAKOJŠNJI PRIKAZ (0 ms, kadar disk datoteka še ne obstaja) ---
-
-    fun zasilniTopChart(type: TopChartsContract.Type, chart: TopChartsContract.Chart): StreamCluster {
-        val cat = if (type == TopChartsContract.Type.GAME) StreamContract.Category.GAME else StreamContract.Category.APPLICATION
-        val drzava = trenutnaDrzava()
-        val kljuc = "${drzava}_${cat.name}"
-        val home = ramHome.get(kljuc) ?: beriHomeBundle(cat)
-        val apps = home?.streamClusters?.values
-            ?.flatMap { it.clusterAppList }
-            ?.distinctBy { it.packageName }
-            ?.take(30)
-            ?.ifEmpty { null }
-            ?: lokaliziraneAplikacijeZaDrzavo(drzava)
-
-        val naslov = when (chart) {
-            TopChartsContract.Chart.TOP_SELLING_FREE -> "Najboljše brezplačne"
-            TopChartsContract.Chart.TOP_GROSSING -> "Najbolj donosne"
-            TopChartsContract.Chart.MOVERS_SHAKERS -> "V vzponu"
-            TopChartsContract.Chart.TOP_SELLING_PAID -> "Najboljše plačljive"
-            else -> "Lestvica"
-        }
-        return StreamCluster(
-            id = chart.name.hashCode(),
-            clusterTitle = naslov,
-            clusterSubtitle = "",
-            clusterBrowseUrl = "",
-            clusterNextPageUrl = "",
-            clusterAppList = apps
-        )
-    }
-
-    fun zasilniCategoryBundle(browseUrl: String): StreamBundle {
-        val cat = if (browseUrl.contains("GAME", ignoreCase = true)) StreamContract.Category.GAME else StreamContract.Category.APPLICATION
-        val drzava = trenutnaDrzava()
-        val kljuc = "${drzava}_${cat.name}"
-        val home = ramHome.get(kljuc) ?: beriHomeBundle(cat)
-        if (home != null && home.hasCluster()) {
-            val omejeneGruce = home.streamClusters.entries.take(3).associate { (k, cluster) ->
-                k to cluster.copy(clusterAppList = cluster.clusterAppList.take(12))
-            }
-            return home.copy(streamClusters = omejeneGruce)
-        }
-        val defaultApps = lokaliziraneAplikacijeZaDrzavo(drzava)
-        return StreamBundle(
-            id = 1,
-            streamClusters = mapOf(
-                1 to StreamCluster(
-                    id = 1,
-                    clusterTitle = "Priljubljene aplikacije",
-                    clusterSubtitle = "",
-                    clusterBrowseUrl = browseUrl,
-                    clusterNextPageUrl = "",
-                    clusterAppList = defaultApps
-                )
-            ),
-            streamNextPageUrl = ""
-        )
-    }
-
     // --- HOME STREAM BUNDLE (Igre / Aplikacije domače police) ---
 
     fun beriHomeBundle(category: StreamContract.Category): StreamBundle? {
@@ -256,11 +138,12 @@ object SafeerStoreCache {
     private fun kljucTopChart(type: TopChartsContract.Type, chart: TopChartsContract.Chart) =
         "${trenutnaDrzava()}_${type.name.lowercase()}_${chart.name.lowercase()}"
 
-    fun beriTopChart(type: TopChartsContract.Type, chart: TopChartsContract.Chart): StreamCluster {
+    /** Zadnja prava lestvica iz Trgovine (RAM ali disk); null, ce je se nimamo. */
+    fun beriTopChart(type: TopChartsContract.Type, chart: TopChartsContract.Chart): StreamCluster? {
         val kljuc = kljucTopChart(type, chart)
         ramTopCharts.get(kljuc)?.let { return it }
         try {
-            val datoteka = File(mapa() ?: return zasilniTopChart(type, chart), "chart_${kljuc.lowercase()}.json")
+            val datoteka = File(mapa() ?: return null, "chart_${kljuc.lowercase()}.json")
             if (datoteka.isFile && datoteka.length() > 0) {
                 val cluster = clusterIzJson(JSONObject(datoteka.readText()))
                 if (cluster.clusterAppList.isNotEmpty()) {
@@ -269,7 +152,7 @@ object SafeerStoreCache {
                 }
             }
         } catch (_: Exception) {}
-        return zasilniTopChart(type, chart)
+        return null
     }
 
     fun shraniTopChart(type: TopChartsContract.Type, chart: TopChartsContract.Chart, cluster: StreamCluster) {
@@ -292,7 +175,7 @@ object SafeerStoreCache {
         val kljuc = "${drzava}_${kljucUrl(browseUrl)}"
         ramCategoryStreams.get(kljuc)?.let { return it }
         try {
-            val datoteka = File(mapa() ?: return zasilniCategoryBundle(browseUrl), "cat_${kljuc.lowercase()}.json")
+            val datoteka = File(mapa() ?: return StreamBundle.EMPTY, "cat_${kljuc.lowercase()}.json")
             if (datoteka.isFile && datoteka.length() > 0) {
                 val bundle = bundleIzJson(JSONObject(datoteka.readText()))
                 if (bundle.hasCluster()) {
@@ -301,7 +184,7 @@ object SafeerStoreCache {
                 }
             }
         } catch (_: Exception) {}
-        return zasilniCategoryBundle(browseUrl)
+        return StreamBundle.EMPTY
     }
 
     fun shraniCategoryBundle(browseUrl: String, bundle: StreamBundle) {

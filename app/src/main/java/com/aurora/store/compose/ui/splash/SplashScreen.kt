@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -204,12 +205,25 @@ fun SplashScreen(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Image(
-                        painter = painterResource(R.drawable.ic_logo_alt),
-                        contentDescription = null,
-                        modifier = Modifier.size(dimensionResource(R.dimen.icon_size_splash)),
-                        contentScale = ContentScale.FillBounds
-                    )
+                    // Safeer Play Store: ista ikona kot na zaganjalniku (ozadje + scit), ne vec Aurorina.
+                    androidx.compose.foundation.layout.Box(
+                        modifier = Modifier
+                            .size(dimensionResource(R.dimen.icon_size_splash))
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(28))
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.ic_launcher_background),
+                            contentDescription = null,
+                            modifier = Modifier.matchParentSize(),
+                            contentScale = ContentScale.FillBounds
+                        )
+                        Image(
+                            painter = painterResource(R.drawable.ic_launcher_foreground),
+                            contentDescription = null,
+                            modifier = Modifier.matchParentSize(),
+                            contentScale = ContentScale.FillBounds
+                        )
+                    }
                     Text(
                         text = stringResource(R.string.app_name),
                         style = MaterialTheme.typography.titleLarge,

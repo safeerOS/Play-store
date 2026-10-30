@@ -19,28 +19,53 @@
 
 package com.aurora.store.viewmodel.topchart
 
+import android.os.SystemClock
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aurora.gplayapi.data.models.StreamCluster
 import com.aurora.gplayapi.helpers.contracts.TopChartsContract
 import com.aurora.gplayapi.helpers.web.WebTopChartsHelper
-import com.aurora.store.TopChartStash
 import com.aurora.store.data.cache.SafeerStoreCache
 import com.aurora.store.data.model.ViewState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
+/**
+ * Lestvice (Najboljse brezplacne, V trendu, Z najvecjim donosom, Najboljse placljive).
+ *
+ * Po vzoru posterjev v Safeer Mediih: izbrana lestvica se pokaze takoj iz predpomnilnika (RAM ali disk),
+ * sveza pride v ozadju. Prikaz kaze vedno samo izbrano lestvico (pozni odgovor druge je ne prepise).
+ * Ce lestvice se nimamo in Trgovina ne odgovori v [CAKANJE_MS], uporabnik dobi gumb Poskusi znova -
+ * nikoli neskoncnega cakanja; zahteva tece naprej in pokaze lestvico, ko pride. Ostale lestvice iste
+ * vrste se nalozijo vnaprej ena za drugo, zato je naslednja izbira takojsnja.
+ */
 @HiltViewModel
 class TopChartViewModel @Inject constructor(
     private val webTopChartsHelper: WebTopChartsHelper
 ) : ViewModel() {
 
-    private var stash: TopChartStash = mutableMapOf()
+    private data class Kljuc(val type: TopChartsContract.Type, val chart: TopChartsContract.Chart)
+
+    private val lestvice = ConcurrentHashMap<Kljuc, StreamCluster>()
+    private val vTeku = ConcurrentHashMap.newKeySet<Kljuc>()
+    private val nalozeneVSeji = ConcurrentHashMap.newKeySet<Kljuc>()
+    private val zaporedje = Mutex()
+
+    @Volatile
+    private var izbrana: Kljuc? = null
+    private var cakanje: Job? = null
+    private var vnaprej: Job? = null
 
     private val _state = MutableStateFlow<ViewState>(ViewState.Loading)
     val state: StateFlow<ViewState> = _state.asStateFlow()
@@ -49,74 +74,94 @@ class TopChartViewModel @Inject constructor(
         get() = webTopChartsHelper
 
     fun getStreamCluster(type: TopChartsContract.Type, chart: TopChartsContract.Chart) {
-        val obstojec = targetCluster(type, chart)
-        val takoj = if (obstojec.clusterAppList.isNotEmpty()) obstojec else SafeerStoreCache.beriTopChart(type, chart)
-        if (takoj.clusterAppList.isNotEmpty()) {
-            stash.getOrPut(type) { mutableMapOf() }[chart] = takoj
-            _state.value = ViewState.Success(takoj)
+        val k = Kljuc(type, chart)
+        izbrana = k
+        cakanje?.cancel()
+        val znana = lestvice[k] ?: SafeerStoreCache.beriTopChart(type, chart)?.also { lestvice[k] = it }
+        if (znana != null && znana.clusterAppList.isNotEmpty()) {
+            _state.value = ViewState.Success(znana)
         } else {
             _state.value = ViewState.Loading
+            cakanje = viewModelScope.launch {
+                delay(CAKANJE_MS)
+                if (izbrana == k && lestvice[k]?.clusterAppList.isNullOrEmpty()) {
+                    _state.value = ViewState.Error(null)
+                }
+            }
         }
+        if (k !in nalozeneVSeji) viewModelScope.launch(Dispatchers.IO) { nalozi(k) }
+        nalozVnaprej(type)
+    }
 
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val cluster = kotlinx.coroutines.withTimeoutOrNull(8000L) {
-                    topChartsContract.getCluster(type.value, chart.value)
-                }
-                if (cluster != null && cluster.clusterAppList.isNotEmpty()) {
-                    updateCluster(type, chart, cluster)
-                    val posodobljen = targetCluster(type, chart)
-                    SafeerStoreCache.shraniTopChart(type, chart, posodobljen)
-                    _state.value = ViewState.Success(posodobljen)
-                }
-            } catch (e: Exception) {
-                if (targetCluster(type, chart).clusterAppList.isEmpty()) {
-                    _state.value = ViewState.Error(e.message)
-                }
+    /** Ostale lestvice iste vrste, ena za drugo (ne obremenimo televizorja in ne Trgovine). */
+    private fun nalozVnaprej(type: TopChartsContract.Type) {
+        if (vnaprej?.isActive == true) return
+        vnaprej = viewModelScope.launch(Dispatchers.IO) {
+            delay(1500)
+            for (chart in VSE_LESTVICE) {
+                val k = Kljuc(type, chart)
+                if (k !in nalozeneVSeji) zaporedje.withLock { nalozi(k) }
             }
         }
     }
 
+    private suspend fun nalozi(k: Kljuc) {
+        if (!vTeku.add(k)) return
+        try {
+            run {
+                if (k in nalozeneVSeji) return
+                val zacetek = SystemClock.elapsedRealtime()
+                val cluster = try {
+                    topChartsContract.getCluster(k.type.value, k.chart.value)
+                } catch (e: Exception) {
+                    Log.w(TAG, "lestvica ${k.type} ${k.chart} napaka ${e.javaClass.simpleName}")
+                    if (izbrana == k && lestvice[k]?.clusterAppList.isNullOrEmpty()) {
+                        cakanje?.cancel()
+                        _state.value = ViewState.Error(e.message)
+                    }
+                    return
+                }
+                Log.i(TAG, "lestvica ${k.type} ${k.chart} ${cluster.clusterAppList.size} aplikacij v ${SystemClock.elapsedRealtime() - zacetek} ms")
+                if (cluster.clusterAppList.isEmpty()) return
+                nalozeneVSeji.add(k)
+                lestvice[k] = cluster
+                SafeerStoreCache.shraniTopChart(k.type, k.chart, cluster)
+                if (izbrana == k) {
+                    cakanje?.cancel()
+                    _state.value = ViewState.Success(cluster)
+                }
+            }
+        } finally {
+            vTeku.remove(k)
+        }
+    }
+
     fun nextCluster(type: TopChartsContract.Type, chart: TopChartsContract.Chart) {
+        val k = Kljuc(type, chart)
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val target = targetCluster(type, chart)
-                if (target.hasNext()) {
-                    val newCluster = topChartsContract.getNextStreamCluster(
-                        target.id,
-                        target.clusterNextPageUrl
-                    )
-
-                    updateCluster(type, chart, newCluster)
-
-                    _state.value = ViewState.Success(targetCluster(type, chart))
-                }
+                val target = lestvice[k] ?: return@launch
+                if (!target.hasNext() || k !in nalozeneVSeji) return@launch
+                val nova = topChartsContract.getNextStreamCluster(target.id, target.clusterNextPageUrl)
+                val zdruzena = target.copy(
+                    clusterNextPageUrl = nova.clusterNextPageUrl,
+                    clusterAppList = (target.clusterAppList + nova.clusterAppList).distinctBy { it.packageName }
+                )
+                lestvice[k] = zdruzena
+                if (izbrana == k) _state.value = ViewState.Success(zdruzena)
             } catch (_: Exception) {
             }
         }
     }
 
-    private fun updateCluster(
-        type: TopChartsContract.Type,
-        chart: TopChartsContract.Chart,
-        newCluster: StreamCluster
-    ) {
-        val streamCluster = targetCluster(type, chart)
-        val mergedCluster = streamCluster.copy(
-            clusterNextPageUrl = newCluster.clusterNextPageUrl,
-            clusterAppList = streamCluster.clusterAppList + newCluster.clusterAppList
+    private companion object {
+        const val TAG = "SafeerTrgovina"
+        const val CAKANJE_MS = 15_000L
+        val VSE_LESTVICE = listOf(
+            TopChartsContract.Chart.TOP_SELLING_FREE,
+            TopChartsContract.Chart.MOVERS_SHAKERS,
+            TopChartsContract.Chart.TOP_GROSSING,
+            TopChartsContract.Chart.TOP_SELLING_PAID
         )
-
-        stash[type]?.set(chart, mergedCluster)
-    }
-
-    private fun targetCluster(
-        type: TopChartsContract.Type,
-        chart: TopChartsContract.Chart
-    ): StreamCluster {
-        val cluster = stash
-            .getOrPut(type) { mutableMapOf() }
-            .getOrPut(chart) { StreamCluster.EMPTY }
-        return cluster
     }
 }

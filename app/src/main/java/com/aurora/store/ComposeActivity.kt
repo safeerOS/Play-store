@@ -128,7 +128,9 @@ class ComposeActivity : FragmentActivity() {
                         LocalUI provides localUI,
                         LocalNetworkStatus provides networkStatus
                     ) {
-                        NavDisplay(startDestination = startDestination)
+                        com.aurora.store.compose.composable.SafeerFokusOkvir {
+                            NavDisplay(startDestination = startDestination)
+                        }
                     }
 
                     // Plain surface behind the prompt so dismissing it doesn't flash the lock card

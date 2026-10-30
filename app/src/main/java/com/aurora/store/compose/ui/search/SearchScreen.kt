@@ -11,13 +11,14 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -43,6 +44,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -50,14 +52,19 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onInterceptKeyBeforeSoftKeyboard
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
@@ -87,7 +94,6 @@ import com.aurora.store.compose.preview.ThemePreviewProvider
 import com.aurora.store.data.model.SearchFilter
 import com.aurora.store.viewmodel.search.SearchViewModel
 import kotlin.random.Random
-import kotlin.uuid.Uuid
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -115,6 +121,7 @@ fun SearchScreen(
     )
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun ScreenContent(
     suggestions: List<SearchSuggestEntry> = emptyList(),
@@ -134,9 +141,37 @@ private fun ScreenContent(
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     val focusRequester = remember { FocusRequester() }
+    val rezultatiFokus = remember { FocusRequester() }
+    var fokusNaRezultate by remember { mutableStateOf(false) }
+
+    // Material3 InputField ob fokusu iskalnik razsiri. Ko se iskalnik zlozi, se fokus vrne na
+    // zlozeno polje, ki bi ga takoj spet razsirilo in odprlo tipkovnico (Nazaj ni deloval).
+    // Zato je polje kratek cas po zlaganju nefokusabilno, fokus pa gre na rezultate.
+    var poljeZaklenjeno by remember { mutableStateOf(false) }
+    val zakleniPolje = {
+        poljeZaklenjeno = true
+        coroutineScope.launch {
+            kotlinx.coroutines.delay(800)
+            poljeZaklenjeno = false
+        }
+    }
+
+    // Lastnik 30. 10. 2026: po iskanju je tipkovnica ostala odprta in Dol ni prisel do
+    // rezultatov. Razsirjeno polje je v svojem pojavnem oknu, zato keyboardController glavnega
+    // okna tipkovnice ne skrije. Skrijemo jo za vsa okna, v katerih je iskalno polje.
+    val pogledi = remember { mutableStateListOf<android.view.View>() }
+    val skrijTipkovnico = {
+        keyboardController?.hide()
+        pogledi.toList().forEach { pogled ->
+            val imm = pogled.context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+                as? android.view.inputmethod.InputMethodManager
+            imm?.hideSoftInputFromWindow(pogled.windowToken, 0)
+        }
+    }
 
     val zapriIskalnikInTipkovnico = {
-        keyboardController?.hide()
+        zakleniPolje()
+        skrijTipkovnico()
         focusManager.clearFocus(force = true)
         if (searchBarState.targetValue == SearchBarValue.Expanded) {
             coroutineScope.launch {
@@ -145,20 +180,31 @@ private fun ScreenContent(
         }
     }
 
-    BackHandler(enabled = searchBarState.targetValue == SearchBarValue.Expanded) {
+    // Nazaj, ko je tipkovnica na zaslonu ali je iskalnik razsirjen: najprej skrij tipkovnico
+    // in zapri iskalnik (rezultati ostanejo), sele naslednji Nazaj zapusti iskanje.
+    val tipkovnicaVidna = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    BackHandler(
+        enabled = tipkovnicaVidna || searchBarState.targetValue == SearchBarValue.Expanded
+    ) {
         zapriIskalnikInTipkovnico()
+        if (results.itemCount > 0) fokusNaRezultate = true
     }
 
-    val odpriIskanjeInTipkovnico = {
-        if (searchBarState.targetValue != SearchBarValue.Expanded) {
-            coroutineScope.launch {
+    // Lastnik 30. 10. 2026: po prvem odhodu iz polja OK ni vec odprl iskanja (fokus je ostal
+    // na zlozeni vrstici, tipkovnica ni bila zahtevana). Najprej razsirimo vrstico, nato fokus
+    // na polje v njej in tipkovnica.
+    val odpriIskanjeInTipkovnico: () -> Unit = {
+        poljeZaklenjeno = false
+        coroutineScope.launch {
+            if (searchBarState.targetValue != SearchBarValue.Expanded) {
                 searchBarState.animateToExpanded()
             }
+            kotlinx.coroutines.delay(50)
+            try {
+                focusRequester.requestFocus()
+            } catch (_: Exception) {}
+            keyboardController?.show()
         }
-        try {
-            focusRequester.requestFocus()
-        } catch (_: Exception) {}
-        keyboardController?.show()
     }
 
     DisposableEffect(Unit) {
@@ -181,25 +227,94 @@ private fun ScreenContent(
         zapriIskalnikInTipkovnico()
         onSearch(trimmed)
         isSearching = true
+        fokusNaRezultate = true
+    }
+
+    // Ko se iskalnik zlozi (Nazaj, iskanje), dobi fokus zlozeno polje in tipkovnica bi se spet
+    // odprla. Zato jo skrijemo in fokus prestavimo na rezultate (ali ga sprostimo, ce jih ni).
+    LaunchedEffect(searchBarState) {
+        snapshotFlow { searchBarState.targetValue }
+            .collectLatest { vrednost ->
+                if (vrednost == SearchBarValue.Collapsed) {
+                    zakleniPolje()
+                    skrijTipkovnico()
+                    if (results.itemCount > 0) {
+                        fokusNaRezultate = true
+                    } else {
+                        focusManager.clearFocus(force = true)
+                    }
+                    kotlinx.coroutines.delay(300)
+                    skrijTipkovnico()
+                }
+            }
+    }
+
+    // Ko so rezultati nalozeni, gre fokus daljinca na prvi rezultat (tipkovnica je zaprta).
+    LaunchedEffect(fokusNaRezultate, results.loadState.refresh, results.itemCount) {
+        if (fokusNaRezultate &&
+            results.loadState.refresh is LoadState.NotLoading &&
+            results.itemCount > 0
+        ) {
+            kotlinx.coroutines.delay(150)
+            try {
+                rezultatiFokus.requestFocus()
+                fokusNaRezultate = false
+            } catch (_: Exception) {}
+        }
     }
 
     @Composable
     fun SearchBar() {
         val inputField = @Composable {
+            val pogledPolja = LocalView.current
+            DisposableEffect(pogledPolja) {
+                pogledi.add(pogledPolja)
+                onDispose { pogledi.remove(pogledPolja) }
+            }
             SearchBarDefaults.InputField(
                 modifier = Modifier
+                    .focusProperties { canFocus = !poljeZaklenjeno }
                     .focusRequester(focusRequester)
-                    .onKeyEvent { keyEvent ->
-                        if (keyEvent.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN &&
-                            (keyEvent.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER ||
-                             keyEvent.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_ENTER)
+                    // Nazaj prestrezemo pred tipkovnico (Gboard na TV ga sicer porabi in se znova
+                    // odpre): skrij tipkovnico, zlozi iskalnik in fokus na rezultate.
+                    .onInterceptKeyBeforeSoftKeyboard { keyEvent ->
+                        val odprto = tipkovnicaVidna ||
+                            searchBarState.targetValue == SearchBarValue.Expanded
+                        if (odprto &&
+                            keyEvent.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_BACK
                         ) {
-                            if (searchBarState.targetValue != SearchBarValue.Expanded) {
-                                odpriIskanjeInTipkovnico()
-                                true
-                            } else {
-                                false
+                            if (keyEvent.nativeKeyEvent.action == android.view.KeyEvent.ACTION_UP) {
+                                zapriIskalnikInTipkovnico()
+                                if (results.itemCount > 0) fokusNaRezultate = true
                             }
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    .onPreviewKeyEvent { keyEvent ->
+                        // OK na daljincu (pred besedilnim poljem): odpre iskanje in tipkovnico;
+                        // ENTER v razsirjenem polju ostane potrditev iskanja (onSearch).
+                        val koda = keyEvent.nativeKeyEvent.keyCode
+                        if (keyEvent.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN &&
+                            (
+                                koda == android.view.KeyEvent.KEYCODE_DPAD_CENTER ||
+                                    (
+                                        koda == android.view.KeyEvent.KEYCODE_ENTER &&
+                                            searchBarState.targetValue != SearchBarValue.Expanded
+                                        )
+                                )
+                        ) {
+                            odpriIskanjeInTipkovnico()
+                            true
+                        } else if (keyEvent.nativeKeyEvent.action ==
+                            android.view.KeyEvent.ACTION_DOWN &&
+                            koda == android.view.KeyEvent.KEYCODE_DPAD_DOWN &&
+                            results.itemCount > 0
+                        ) {
+                            zapriIskalnikInTipkovnico()
+                            fokusNaRezultate = true
+                            true
                         } else {
                             false
                         }
@@ -259,7 +374,9 @@ private fun ScreenContent(
                     SearchSuggestionListItem(
                         searchSuggestEntry = suggestion,
                         onClick = { query -> onRequestSearch(query) },
-                        onAction = { query -> textFieldState.setTextAndPlaceCursorAtEnd(query.trim()) }
+                        onAction = { query ->
+                            textFieldState.setTextAndPlaceCursorAtEnd(query.trim())
+                        }
                     )
                 }
             }
@@ -308,14 +425,15 @@ private fun ScreenContent(
                             Box(modifier = Modifier.fillMaxSize()) {
                                 LazyColumn(
                                     state = listState,
-                                    modifier = Modifier.fillMaxSize(),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .focusRequester(rezultatiFokus),
                                     verticalArrangement = Arrangement.spacedBy(
                                         dimensionResource(R.dimen.spacing_medium)
                                     )
                                 ) {
                                     items(
-                                        count = results.itemCount,
-                                        key = { Uuid.random().toString() }
+                                        count = results.itemCount
                                     ) { index ->
                                         results[index]?.let { app ->
                                             LargeAppListItem(

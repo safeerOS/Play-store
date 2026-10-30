@@ -100,6 +100,11 @@ fun MainScreen(
 
     val topBarFocusRequester = remember { FocusRequester() }
 
+    // Nazaj: zvrst -> lestvica -> Priporoceno -> zapri Trgovino (prej je Nazaj iz zvrsti zaprl Trgovino).
+    androidx.activity.compose.BackHandler(enabled = selectedCategory != null || selectedChartIndex != 0) {
+        if (selectedCategory != null) selectedCategory = null else selectedChartIndex = 0
+    }
+
     // Nalaganje kategorij glede na tip (Igre ali Aplikacije)
     val categoryType = if (selectedType == 1) Category.Type.GAME else Category.Type.APPLICATION
     LaunchedEffect(categoryType) {

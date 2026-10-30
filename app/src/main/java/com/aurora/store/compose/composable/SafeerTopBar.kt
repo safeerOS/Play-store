@@ -9,6 +9,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -147,6 +149,13 @@ fun SafeerStoreTopBar(
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Telefon/tablica: izbirni gumbi v vodoravno pomicni vrsti, da ikone desno ostanejo na zaslonu.
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .horizontalScroll(rememberScrollState()),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
         // 1) Izbira vrste (Igre | Aplikacije | Posodobitve)
         SafeerTopBarChip(
             label = currentTypeLabel,
@@ -172,8 +181,9 @@ fun SafeerStoreTopBar(
                 onClick = { showCategoryDialog = true }
             )
         }
+        }
 
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.width(8.dp))
 
         // 4) Gumbi na desni: Iskanje, Prenosi, Meni
         SafeerTopBarIconButton(
@@ -347,6 +357,9 @@ private fun SafeerSelectionDialog(
         },
         text = {
             LazyColumn(
+                state = androidx.compose.foundation.lazy.rememberLazyListState(
+                    initialFirstVisibleItemIndex = selectedIndex.coerceAtLeast(0)
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(340.dp)

@@ -53,6 +53,9 @@ class StreamViewModel @Inject constructor(
     // Mutex to protect stash access for thread safety
     private val stashMutex = Mutex()
 
+    /** Kategorije, katerih prva stran je v tej seji ze prisla z omrezja (shranjena je samo za takojsen prikaz). */
+    private val svezePrve = java.util.Collections.synchronizedSet(mutableSetOf<StreamContract.Category>())
+
     fun getStreamBundle(category: StreamContract.Category, type: StreamContract.Type) {
         // Enaka logika kot pri filmih in serijah:
         // 1. Če imamo pogled v RAM ali na disku, ga prikažemo takoj (0 ms)!
@@ -78,9 +81,10 @@ class StreamViewModel @Inject constructor(
                         liveData.postValue(ViewState.Success(stash.toMap()))
                     }
 
-                    if (!bundle.hasCluster() || bundle.hasNext()) {
+                    val prva = category !in svezePrve
+                    if (prva || !bundle.hasCluster() || bundle.hasNext()) {
                         // Fetch new stream bundle
-                        val newBundle = if (bundle.hasCluster()) {
+                        val newBundle = if (!prva && bundle.hasCluster()) {
                             streamContract.nextStreamBundle(
                                 bundle.id,
                                 category,
@@ -90,10 +94,12 @@ class StreamViewModel @Inject constructor(
                             streamContract.fetch(type, category)
                         }
 
-                        val mergedBundle = bundle.copy(
+                        if (prva && !newBundle.hasCluster()) return@withLock
+                        val mergedBundle = if (prva) newBundle else bundle.copy(
                             streamClusters = bundle.streamClusters + newBundle.streamClusters,
                             streamNextPageUrl = newBundle.streamNextPageUrl
                         )
+                        svezePrve.add(category)
                         stash[category] = mergedBundle
                         SafeerStoreCache.shraniHomeBundle(category, mergedBundle)
 

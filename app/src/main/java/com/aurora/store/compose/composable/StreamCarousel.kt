@@ -90,6 +90,7 @@ fun StreamCarousel(
         return
     }
 
+    val mreza = rememberSafeerMreza()
     val singleClusterApps = remember(clusters) {
         if (clusters.size == 1) {
             clusters.first().clusterAppList.distinctBy { it.packageName }
@@ -112,7 +113,7 @@ fun StreamCarousel(
         )
     ) {
         if (clusters.size == 1) {
-            val chunkedSingle = singleClusterApps.chunked(7)
+            val chunkedSingle = singleClusterApps.chunked(mreza.stolpci)
             items(count = chunkedSingle.size, key = { "single_row_$it" }) { rowIndex ->
                 val rowApps = chunkedSingle[rowIndex]
                 Row(
@@ -124,6 +125,7 @@ fun StreamCarousel(
                     for (app in rowApps) {
                         AppListItem(
                             app = app,
+                            sirina = mreza.sirina,
                             onClick = { onAppClick(app) }
                         )
                     }
@@ -167,8 +169,9 @@ internal fun ClusterRow(
         cluster.clusterAppList.distinctBy { it.packageName }
     }
 
-    val chunkedApps = remember(uniqueApps) {
-        uniqueApps.chunked(7)
+    val mreza = rememberSafeerMreza()
+    val chunkedApps = remember(uniqueApps, mreza.stolpci) {
+        uniqueApps.chunked(mreza.stolpci)
     }
 
     Column(
@@ -185,6 +188,7 @@ internal fun ClusterRow(
                 for (app in rowApps) {
                     AppListItem(
                         app = app,
+                        sirina = mreza.sirina,
                         onClick = { onAppClick(app) }
                     )
                 }

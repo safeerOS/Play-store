@@ -161,7 +161,8 @@ private fun TopChartsBody(
 
             cluster != null -> {
                 val apps = cluster.clusterAppList
-                val chunked = remember(apps) { apps.chunked(7) }
+                val mreza = com.aurora.store.compose.composable.rememberSafeerMreza()
+                val chunked = remember(apps, mreza.stolpci) { apps.chunked(mreza.stolpci) }
                 LazyColumn(
                     modifier = Modifier
                         .weight(1f)
@@ -182,6 +183,7 @@ private fun TopChartsBody(
                             rowApps.forEach { app ->
                                 AppListItem(
                                     app = app,
+                                    sirina = mreza.sirina,
                                     onClick = { onAppClick(app) }
                                 )
                             }

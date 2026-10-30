@@ -28,7 +28,9 @@ fun CategoryBrowseScreen(
     title: String,
     browseUrl: String,
     onNavigateTo: (Destination) -> Unit,
+    // Puscica nazaj v vrstici sprozi sistemski Nazaj, ki ga MainScreen prestreze (zapre zvrst).
     viewModel: CategoryStreamViewModel = hiltViewModel(
+        key = "zvrst_$browseUrl",
         creationCallback = { factory: CategoryStreamViewModel.Factory ->
             factory.create(browseUrl)
         }

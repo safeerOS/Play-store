@@ -75,6 +75,7 @@ import kotlinx.coroutines.withContext
 fun AppListItem(
     modifier: Modifier = Modifier,
     app: App,
+    sirina: androidx.compose.ui.unit.Dp = 116.dp,
     onClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -122,7 +123,7 @@ fun AppListItem(
 
     Column(
         modifier = modifier
-            .width(116.dp)
+            .width(sirina)
             .clip(cardShape)
             .background(cardBg)
             .border(borderStroke, cardShape)

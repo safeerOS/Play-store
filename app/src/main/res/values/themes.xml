@@ -49,4 +49,9 @@
     <style name="AppTheme.BottomSheetStyle" parent="Widget.Material3.BottomSheet" />
 
     <style name="Chip.Filter" parent="@style/Widget.Material3.Chip.Filter" />
+
+    <!-- Zacetno okno Safeer Play Store; ComposeActivity ga po zagonu zamenja z enobarvnim ozadjem. -->
+    <style name="AppTheme.Zagon">
+        <item name="android:windowBackground">@drawable/safeer_zagon</item>
+    </style>
 </resources>

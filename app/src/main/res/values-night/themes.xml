@@ -8,4 +8,9 @@
         <item name="colorPrimary">@color/colorAccent</item>
         <item name="android:defaultFocusHighlightEnabled">false</item>
     </style>
+
+    <!-- Zacetno okno Safeer Play Store; ComposeActivity ga po zagonu zamenja z enobarvnim ozadjem. -->
+    <style name="AppTheme.Zagon">
+        <item name="android:windowBackground">@drawable/safeer_zagon</item>
+    </style>
 </resources>

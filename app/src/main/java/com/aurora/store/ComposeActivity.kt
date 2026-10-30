@@ -6,6 +6,7 @@
 
 package com.aurora.store
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.compose.setContent
@@ -16,6 +17,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -52,10 +55,18 @@ class ComposeActivity : FragmentActivity() {
 
     @Inject lateinit var appLockManager: AppLockManager
 
+    // Lastnik 30. 10. 2026: ob novem zagonu se trgovina odpre na priporocenih aplikacijah, ne na
+    // zadnjem brskanju. Nov zagon (ikona, zaganjalnik) da novo vsebino; obnova po smrti procesa
+    // zacne znova; sprememba konfiguracije (vrtenje telefona) stanje ohrani.
+    private val ponastavitev = mutableIntStateOf(0)
+    private var zacetek by mutableStateOf<Screen>(Screen.Splash())
+
     override fun onCreate(savedInstanceState: Bundle?) {
         MigrationReceiver.runMigrationsIfRequired(this)
         enableEdgeToEdge()
-        super.onCreate(savedInstanceState)
+        val obnovaPoSmrtiProcesa = savedInstanceState != null && !procesZiv
+        procesZiv = true
+        super.onCreate(if (obnovaPoSmrtiProcesa) null else savedInstanceState)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             window.decorView.defaultFocusHighlightEnabled = false
         }
@@ -64,7 +75,7 @@ class ComposeActivity : FragmentActivity() {
 
         intent.setExtrasClassLoader(Screen::class.java.classLoader)
 
-        val startDestination = resolveStartDestination()
+        zacetek = resolveStartDestination()
 
         val localUI = when {
             PackageUtil.isTv(this) -> UI.TV
@@ -129,7 +140,9 @@ class ComposeActivity : FragmentActivity() {
                         LocalNetworkStatus provides networkStatus
                     ) {
                         com.aurora.store.compose.composable.SafeerFokusOkvir {
-                            NavDisplay(startDestination = startDestination)
+                            key(ponastavitev.intValue) {
+                                NavDisplay(startDestination = zacetek)
+                            }
                         }
                     }
 
@@ -142,6 +155,14 @@ class ComposeActivity : FragmentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        intent.setExtrasClassLoader(Screen::class.java.classLoader)
+        zacetek = resolveStartDestination()
+        ponastavitev.intValue++
     }
 
     private fun promptUnlock(onSuccess: () -> Unit, onError: () -> Unit) {
@@ -175,4 +196,9 @@ class ComposeActivity : FragmentActivity() {
     }
 
     private enum class LockState { AUTHENTICATING, LOCKED, UNLOCKED }
+
+    private companion object {
+        /** Ali je proces ze imel to aktivnost (loci spremembo konfiguracije od obnove po smrti procesa). */
+        var procesZiv = false
+    }
 }

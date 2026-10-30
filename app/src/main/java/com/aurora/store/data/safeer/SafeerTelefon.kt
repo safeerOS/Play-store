@@ -17,7 +17,8 @@ object SafeerTelefon {
     private const val KLJUC = "paketi"
 
     /** Profil tablice/telefona z velikim zaslonom (vgrajen v knjiznico gplayapi). Tablica ima prednost pred telefonom zaradi vecjega zaslona in lezece postavitve. */
-    private val PREDNOSTNI = listOf("tangorpro", "Pixel Tablet", "OnePlus8Pro", "px_9", "Pixel", "nothing")
+    private val PREDNOSTNI =
+        listOf("tangorpro", "Pixel Tablet", "OnePlus8Pro", "px_9", "Pixel", "nothing")
 
     fun jeTelevizor(context: Context): Boolean =
         context.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
@@ -33,21 +34,33 @@ object SafeerTelefon {
     }
 
     /** Ali je napaka Googlov »ni podprto za to napravo«. */
-    fun niPodprto(napaka: String?): Boolean =
-        napaka != null && (napaka.contains("not supported", ignoreCase = true) || napaka.contains("AppNotSupported"))
+    fun niPodprto(napaka: String?): Boolean = napaka != null &&
+        (
+            napaka.contains("not supported", ignoreCase = true) ||
+                napaka.contains("AppNotSupported")
+            )
 
     /** Profil telefona z arhitekturo in Androidom te naprave. */
     fun lastnosti(context: Context, telefoni: List<Properties>): Properties {
         val izbran = PREDNOSTNI.firstNotNullOfOrNull { ime ->
             telefoni.firstOrNull {
-                (it.getProperty("Build.PRODUCT").orEmpty() + it.getProperty("Build.DEVICE").orEmpty())
+                (
+                    it.getProperty("Build.PRODUCT").orEmpty() +
+                        it.getProperty("Build.DEVICE").orEmpty()
+                    )
                     .contains(ime, ignoreCase = true)
             }
         } ?: telefoni.firstOrNull { it.getProperty("TouchScreen") == "3" }
             ?: throw IllegalStateException("ni profila telefona")
         val izid = Properties().apply { putAll(izbran) }
         val naprava = NativeDeviceInfoProvider.getNativeDeviceProperties(context)
-        for (k in listOf("Platforms", "Build.VERSION.SDK_INT", "Build.VERSION.RELEASE", "Locales", "TimeZone")) {
+        for (k in listOf(
+            "Platforms",
+            "Build.VERSION.SDK_INT",
+            "Build.VERSION.RELEASE",
+            "Locales",
+            "TimeZone"
+        )) {
             naprava.getProperty(k)?.let { izid.setProperty(k, it) }
         }
         return izid

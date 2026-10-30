@@ -195,7 +195,10 @@ class AuthProvider @Inject constructor(
                         }
                     }
                 } catch (e: Throwable) {
-                    Log.w(TAG, "Dozator žetonov ni dosegljiv: ${e.message}, uporabljam obstoječo sejo")
+                    Log.w(
+                        TAG,
+                        "Dozator žetonov ni dosegljiv: ${e.message}, uporabljam obstoječo sejo"
+                    )
                 }
 
                 if (playResponse != null) {
@@ -216,17 +219,22 @@ class AuthProvider @Inject constructor(
                 // z nadomeščenim profilom tablice/telefona (DeviceInfoProvider)
                 val obstojeci = authData
                 if (obstojeci != null && obstojeci.email != "BOGUS") {
-                    val novDeviceInfoProvider = com.aurora.gplayapi.data.providers.DeviceInfoProvider(
-                        lastnosti,
-                        spoofProvider.locale.toString()
-                    )
+                    val novDeviceInfoProvider =
+                        com.aurora.gplayapi.data.providers.DeviceInfoProvider(
+                            lastnosti,
+                            spoofProvider.locale.toString()
+                        )
                     val prilagojeni = obstojeci.copy(
                         deviceInfoProvider = novDeviceInfoProvider
                     )
                     return@withContext Result.success(prilagojeni)
                 }
 
-                return@withContext Result.failure(Exception("Prijava s profilom tablice ni uspela (dozator ni dosegljiv in ni shranjene seje)"))
+                return@withContext Result.failure(
+                    Exception(
+                        "Prijava s profilom tablice ni uspela (dozator ni dosegljiv in ni shranjene seje)"
+                    )
+                )
             } catch (exception: Exception) {
                 Log.e(TAG, "Profil tablice/telefona: prijava ni uspela", exception)
                 return@withContext Result.failure(exception)

@@ -161,7 +161,10 @@ fun AppDetailsScreen(
                     com.aurora.store.data.safeer.SafeerTelefon.niPodprto(err.error)
                 ) {
                     {
-                        com.aurora.store.data.safeer.SafeerTelefon.dovoli(context, loadedApp.packageName)
+                        com.aurora.store.data.safeer.SafeerTelefon.dovoli(
+                            context,
+                            loadedApp.packageName
+                        )
                         viewModel.dismissInstallError()
                         viewModel.enqueueDownload(loadedApp)
                     }

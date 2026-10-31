@@ -64,15 +64,15 @@ class AppInstaller @Inject constructor(
 ) {
 
     companion object {
-        const val ACTION_INSTALL_STATUS =
-            "com.aurora.store.data.installer.AppInstaller.INSTALL_STATUS"
+        val ACTION_INSTALL_STATUS =
+            "${BuildConfig.APPLICATION_ID}.data.installer.AppInstaller.INSTALL_STATUS"
 
-        const val EXTRA_PACKAGE_NAME =
-            "com.aurora.store.data.installer.AppInstaller.EXTRA_PACKAGE_NAME"
-        const val EXTRA_VERSION_CODE =
-            "com.aurora.store.data.installer.AppInstaller.EXTRA_VERSION_CODE"
-        const val EXTRA_DISPLAY_NAME =
-            "com.aurora.store.data.installer.AppInstaller.EXTRA_DISPLAY_NAME"
+        val EXTRA_PACKAGE_NAME =
+            "${BuildConfig.APPLICATION_ID}.data.installer.AppInstaller.EXTRA_PACKAGE_NAME"
+        val EXTRA_VERSION_CODE =
+            "${BuildConfig.APPLICATION_ID}.data.installer.AppInstaller.EXTRA_VERSION_CODE"
+        val EXTRA_DISPLAY_NAME =
+            "${BuildConfig.APPLICATION_ID}.data.installer.AppInstaller.EXTRA_DISPLAY_NAME"
 
         fun getCurrentInstaller(context: Context): Installer =
             Installer.entries[Preferences.getInteger(context, PREFERENCE_INSTALLER_ID)]

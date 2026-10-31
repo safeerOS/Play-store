@@ -58,7 +58,7 @@ configure<ApplicationExtension> {
     }
 
     defaultConfig {
-        applicationId = "com.aurora.store"
+        applicationId = "si.safeer.trgovina"
         minSdk {
             version = release(23)
         }

@@ -34,13 +34,13 @@ import kotlin.math.absoluteValue
 object NotificationUtil {
 
     // Channel groups: headings the individual channels are filed under in system settings.
-    private const val GROUP_CHANNELS_ACTIVITY = "com.aurora.store.channels.ACTIVITY"
-    private const val GROUP_CHANNELS_ALERTS = "com.aurora.store.channels.ALERTS"
+    private val GROUP_CHANNELS_ACTIVITY = "${com.aurora.store.BuildConfig.APPLICATION_ID}.channels.ACTIVITY"
+    private val GROUP_CHANNELS_ALERTS = "${com.aurora.store.BuildConfig.APPLICATION_ID}.channels.ALERTS"
 
     // Terminal install/failure notifications are bundled under a group so a bulk update
     // shows a single collapsible summary instead of one notification per app.
-    private const val GROUP_INSTALLED = "com.aurora.store.INSTALLED"
-    private const val GROUP_FAILED = "com.aurora.store.FAILED"
+    private val GROUP_INSTALLED = "${com.aurora.store.BuildConfig.APPLICATION_ID}.INSTALLED"
+    private val GROUP_FAILED = "${com.aurora.store.BuildConfig.APPLICATION_ID}.FAILED"
 
     // Fixed IDs for the two group summaries. Kept well clear of the per-app IDs
     // (packageName.hashCode()) and the worker IDs (100/200/500/501).

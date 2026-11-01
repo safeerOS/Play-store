@@ -75,6 +75,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun MainScreen(
     initialTab: Int = 1,
+    brezGoogla: Boolean = false,
     mainViewModel: MainViewModel = hiltViewModel(),
     updatesViewModel: UpdatesViewModel = hiltViewModel(),
     streamViewModel: StreamViewModel = hiltViewModel(key = "main_stream"),
@@ -95,8 +96,12 @@ fun MainScreen(
     // 1 = Igre (privzeto za igre), 0 = Aplikacije, 2 = Posodobitve
     var selectedType by rememberSaveable {
         mutableIntStateOf(
-            if (initialTab == 2) {
+            if (brezGoogla) {
+                if (initialTab == 4) 4 else 3
+            } else if (initialTab == 2) {
                 2
+            } else if (initialTab == 3 || initialTab == 4) {
+                initialTab
             } else if (initialTab == 0) {
                 0
             } else {
@@ -121,6 +126,8 @@ fun MainScreen(
     // Nalaganje kategorij glede na tip (Igre ali Aplikacije)
     val categoryType = if (selectedType == 1) Category.Type.GAME else Category.Type.APPLICATION
     LaunchedEffect(categoryType) {
+        // Brez seje Google zvrsti trgovine Google ne nalagamo.
+        if (brezGoogla) return@LaunchedEffect
         categoryViewModel.getCategoryList(categoryType)
     }
 
@@ -159,6 +166,7 @@ fun MainScreen(
 
     if (showMoreSheet) {
         MoreSheet(
+            brezGoogla = brezGoogla,
             onDismiss = { showMoreSheet = false },
             onNavigateTo = { destination ->
                 showMoreSheet = false
@@ -223,6 +231,7 @@ fun MainScreen(
             topBar = {
                 SafeerStoreTopBar(
                     selectedType = selectedType,
+                    brezGoogla = brezGoogla,
                     selectedChartIndex = selectedChartIndex,
                     selectedCategory = selectedCategory,
                     categories = categories,

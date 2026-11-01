@@ -141,9 +141,14 @@ fun SplashScreen(
                 activity = activity,
                 onError = { googleLoading = false }
             )
-            is AuthState.Failed -> {
+            is AuthState.Failed, AuthState.Unavailable, AuthState.SignedOut -> {
                 anonymousLoading = false
                 googleLoading = false
+                // Lastnik 1. 11. 2026: brez seje Google (ali ko je zavrnjena) trgovina odpre vira Safeer in F-Droid,
+                // ki Googla ne potrebujeta, namesto zaslona z zavrnjenim dostopom.
+                if (deepLinkPackageName.isNullOrBlank() && deepLinkDevId.isNullOrBlank()) {
+                    onNavigateTo(Destination.Main(3, brezGoogla = true))
+                }
             }
             else -> Unit
         }

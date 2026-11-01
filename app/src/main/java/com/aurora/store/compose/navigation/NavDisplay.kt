@@ -166,7 +166,7 @@ fun NavDisplay(startDestination: NavKey) {
             is Destination.Main -> {
                 // Clear the backstack when navigating to Main to prevent going back to the splash screen or other screens.
                 backstack.clear()
-                backstack.add(Screen.Main(destination.initialTab))
+                backstack.add(Screen.Main(destination.initialTab, destination.brezGoogla))
             }
 
             is Destination.ExpandedStreamBrowse -> backstack.add(
@@ -231,6 +231,7 @@ fun NavDisplay(startDestination: NavKey) {
             entry<Screen.Main> { screen ->
                 MainScreen(
                     initialTab = screen.initialTab,
+                    brezGoogla = screen.brezGoogla,
                     onNavigateTo = ::navigate
                 )
             }

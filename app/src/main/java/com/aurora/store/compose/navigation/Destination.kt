@@ -16,7 +16,8 @@ import com.aurora.store.data.room.update.Update
  */
 sealed class Destination {
     data class Splash(val packageName: String? = null) : Destination()
-    data class Main(val initialTab: Int) : Destination()
+    /** [brezGoogla]: ni seje Google - samo viri Safeer in F-Droid (lastnik 1. 11. 2026). */
+    data class Main(val initialTab: Int, val brezGoogla: Boolean = false) : Destination()
 
     data class AppDetails(val packageName: String) : Destination()
     data class DevProfile(val devId: String) : Destination()

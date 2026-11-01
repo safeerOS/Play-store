@@ -55,7 +55,9 @@ val SafeerDarkBg = Color(0xFF0D1214)
 
 @Composable
 fun SafeerStoreTopBar(
-    selectedType: Int, // 1 = Igre, 0 = Aplikacije, 2 = Posodobitve, 3 = Safeer
+    selectedType: Int, // 1 = Igre, 0 = Aplikacije, 2 = Posodobitve, 3 = Safeer, 4 = F-Droid
+    // Brez seje Google: samo Safeer in F-Droid, brez iskanja po trgovini Google (lastnik 1. 11. 2026).
+    brezGoogla: Boolean = false,
     // 0 Priporoceno, 1 Priljubljene, 2 brezplacne, 3 v trendu, 4 donos, 5 placljive
     selectedChartIndex: Int,
     selectedCategory: Category?,
@@ -87,7 +89,7 @@ fun SafeerStoreTopBar(
         2 to oznakaPosodobitve,
         3 to "🛡️ Safeer",
         4 to "🤖 F-Droid"
-    )
+    ).filter { !brezGoogla || it.first >= 3 }
 
     val oznakaPriporoceno = stringResource(R.string.safeer_chart_recommended)
     val chartOptions = listOf(
@@ -222,13 +224,15 @@ fun SafeerStoreTopBar(
         Spacer(Modifier.width(8.dp))
 
         // 4) Gumbi na desni: Iskanje, Prenosi, Meni
-        SafeerTopBarIconButton(
-            iconRes = R.drawable.ic_round_search,
-            contentDescription = stringResource(R.string.action_search),
-            onClick = onSearchClick
-        )
+        if (!brezGoogla) {
+            SafeerTopBarIconButton(
+                iconRes = R.drawable.ic_round_search,
+                contentDescription = stringResource(R.string.action_search),
+                onClick = onSearchClick
+            )
 
-        Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(6.dp))
+        }
 
         SafeerTopBarIconButton(
             iconRes = R.drawable.ic_download_manager,

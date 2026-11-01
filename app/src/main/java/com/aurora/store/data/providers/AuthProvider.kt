@@ -73,7 +73,9 @@ class AuthProvider @Inject constructor(
 
     val dispenserURL: String?
         get() {
+            // Safeer: auroraoss.com nikoli, tudi ce je ostal v nastavitvah starejse namestitve (lastnik 1. 11. 2026).
             val dispensers = Preferences.getStringSet(context, PREFERENCE_DISPENSER_URLS)
+                .filterNot { it == com.aurora.Constants.URL_DISPENSER }
             return if (dispensers.isNotEmpty()) dispensers.random() else null
         }
 

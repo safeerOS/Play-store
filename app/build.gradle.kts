@@ -132,7 +132,9 @@ configure<ApplicationExtension> {
         create("vanilla") {
             isDefault = true
             dimension = "device"
-            buildConfigField("Boolean", "SHOW_ANONYMOUS_LOGIN", "true")
+            // Lastnik 1. 11. 2026: brez anonimne prijave prek auroraoss.com (vzdrzevalec prosi, da je drugi projekti
+            // ne uporabljajo); brez Googla je trgovina na virih Safeer in F-Droid.
+            buildConfigField("Boolean", "SHOW_ANONYMOUS_LOGIN", "false")
         }
 
         create("huawei") {

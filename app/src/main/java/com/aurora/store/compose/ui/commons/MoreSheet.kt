@@ -53,6 +53,7 @@ private data class MoreItem(
 @Composable
 fun MoreSheet(
     onDismiss: () -> Unit,
+    brezGoogla: Boolean = false,
     onNavigateTo: (Destination) -> Unit = {},
     viewModel: MoreViewModel = hiltViewModel()
 ) {
@@ -84,7 +85,8 @@ fun MoreSheet(
         AccountHeader(
             viewModel = viewModel,
             onNavigateToAccounts = {
-                onNavigateTo(Destination.Accounts)
+                // Brez seje Google: prijava z Googlom ostane izbirna (lastnik 1. 11. 2026).
+                onNavigateTo(if (brezGoogla) Destination.GoogleLogin() else Destination.Accounts)
                 onDismiss()
             }
         )

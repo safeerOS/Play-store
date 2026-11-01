@@ -56,7 +56,8 @@ object SafeerIzdaje {
         val predpona: String,
         val ime: String,
         val paket: String,
-        val naprava: Naprava
+        /** null: ista izdaja za vse naprave (Safeer Play Store). */
+        val naprava: Naprava?
     )
 
     private val VZORCI = listOf(
@@ -64,7 +65,9 @@ object SafeerIzdaje {
         Vzorec("safeer-os-mobile-", "Safeer OS", "si.safeer.phone", Naprava.TELEFON),
         Vzorec("safeer-os-tablet-", "Safeer OS", "si.safeer.tablet", Naprava.TABLICA),
         Vzorec("safeer-browser-tv-", "Safeer TV Browser", "si.safeer.tv", Naprava.TV),
-        Vzorec("safeer-predvajalnik-", "Safeer Predvajalnik", "si.safeer.player", Naprava.TV)
+        Vzorec("safeer-predvajalnik-", "Safeer Predvajalnik", "si.safeer.player", Naprava.TV),
+        // Lastnik 1. 11. 2026: trgovina se posodablja tudi sama (isti Safeer podpisni kljuc kot ostale).
+        Vzorec("safeer-play-store-", "Safeer Play Store", "si.safeer.trgovina", null)
     )
 
     private val VERZIJA = Regex("""\d+(\.\d+){0,4}""")
@@ -109,7 +112,7 @@ object SafeerIzdaje {
             val ime = a.optString("name")
             if (!ime.endsWith(".apk")) continue
             val v =
-                VZORCI.firstOrNull { ime.startsWith(it.predpona) && it.naprava == naprava }
+                VZORCI.firstOrNull { ime.startsWith(it.predpona) && (it.naprava == null || it.naprava == naprava) }
                     ?: continue
             val verzija = ime.removePrefix(v.predpona).removeSuffix(".apk")
             if (!VERZIJA.matches(verzija)) continue

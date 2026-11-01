@@ -78,6 +78,16 @@ object SafeerIzdaje {
         _sporocila.update { it + (paket to besedilo) }
     }
 
+    private val _namestitve = MutableStateFlow(0)
+
+    /** Stevec uspesnih namestitev (za osvezitev seznama), neodvisen od jezika sporocil. */
+    val namestitve: StateFlow<Int> = _namestitve.asStateFlow()
+
+    fun namestitevUspela(paket: String, besedilo: String) {
+        sporoci(paket, besedilo)
+        _namestitve.update { it + 1 }
+    }
+
     fun naprava(context: Context): Naprava {
         val pm = context.packageManager
         if (pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK)) return Naprava.TV
@@ -178,7 +188,8 @@ object SafeerIzdaje {
     /** Prenese paket, preveri kontrolno vsoto in Safeer podpis. Vrne datoteko, pripravljeno za namestitev. */
     fun prenesiInPreveri(context: Context, p: Paket, napredek: (Int) -> Unit): File {
         val mapa = File(context.cacheDir, "safeer-apk").apply { mkdirs() }
-        mapa.listFiles()?.forEach { it.delete() }
+        // Brisemo samo stare datoteke tega paketa; prenos drugega paketa lahko tece hkrati.
+        mapa.listFiles { f -> f.name.startsWith("${p.paket}-") }?.forEach { it.delete() }
         val cilj = File(mapa, "${p.paket}-${p.verzija}.apk")
         val md = MessageDigest.getInstance("SHA-256")
         val c = povezava(p.url)

@@ -76,13 +76,12 @@ fun InstallErrorSheet(
 
             if (!error.isNullOrBlank()) {
                 Text(
-                    text = if (com.aurora.store.data.safeer.SafeerTelefon.niPodprto(error)) {
-                        "Google te aplikacije namensko za TV ne ponuja. " +
-                            if (onTelefon != null) {
-                                "Preneseš lahko tablično različico z večjim zaslonom, ki teče na tej napravi."
-                            } else {
-                                ""
-                            }
+                    // Besedilo za TV samo, ko je ponujena tablicna razlicica (TV); drugje Googlova napaka.
+                    text = if (onTelefon != null &&
+                        com.aurora.store.data.safeer.SafeerTelefon.niPodprto(error)
+                    ) {
+                        stringResource(R.string.safeer_not_offered_tv) + " " +
+                            stringResource(R.string.safeer_tablet_hint)
                     } else {
                         error
                     },
@@ -114,7 +113,7 @@ fun InstallErrorSheet(
                 }
                 if (onTelefon != null) {
                     TextButton(onClick = onTelefon) {
-                        Text(text = "Prenesi tablično različico (velik zaslon)")
+                        Text(text = stringResource(R.string.safeer_download_tablet))
                     }
                 }
                 TextButton(onClick = onDismiss) {

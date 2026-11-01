@@ -411,7 +411,8 @@ object FDroidVir {
     /** Prenese paket, preveri SHA-256 iz kazala, ime paketa in podpisnika iz kazala. */
     fun prenesiInPreveri(context: Context, a: Aplikacija, napredek: (Int) -> Unit): File {
         val mapa = File(context.cacheDir, "fdroid-apk").apply { mkdirs() }
-        mapa.listFiles()?.forEach { it.delete() }
+        // Brisemo samo stare datoteke tega paketa; prenos drugega paketa lahko tece hkrati.
+        mapa.listFiles { f -> f.name.startsWith("${a.paket}-") }?.forEach { it.delete() }
         val cilj = File(mapa, "${a.paket}-${a.verzijaKoda}.apk")
         val md = MessageDigest.getInstance("SHA-256")
         val c = povezava(REPO + a.datoteka)

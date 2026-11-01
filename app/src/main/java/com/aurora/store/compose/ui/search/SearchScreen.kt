@@ -310,7 +310,8 @@ private fun ScreenContent(
                         } else if (keyEvent.nativeKeyEvent.action ==
                             android.view.KeyEvent.ACTION_DOWN &&
                             koda == android.view.KeyEvent.KEYCODE_DPAD_DOWN &&
-                            results.itemCount > 0
+                            results.itemCount > 0 &&
+                            suggestions.isEmpty()
                         ) {
                             zapriIskalnikInTipkovnico()
                             fokusNaRezultate = true

@@ -52,22 +52,10 @@ class CategoryStreamViewModel @AssistedInject constructor(
     private var cakanje: kotlinx.coroutines.Job? = null
 
     init {
-        val predpomnjen = SafeerStoreCache.beriCategoryBundle(browseUrl)
-        if (predpomnjen.hasCluster()) {
-            streamBundle = predpomnjen
-            _viewState.value = ViewState.Success(predpomnjen)
-        }
         fetch()
     }
 
     fun fetch() {
-        if (!streamBundle.hasCluster()) {
-            val predpomnjen = SafeerStoreCache.beriCategoryBundle(browseUrl)
-            if (predpomnjen.hasCluster()) {
-                streamBundle = predpomnjen
-                _viewState.value = ViewState.Success(predpomnjen)
-            }
-        }
         if (!streamBundle.hasCluster()) {
             _viewState.value = ViewState.Loading
             cakanje?.cancel()
@@ -80,6 +68,14 @@ class CategoryStreamViewModel @AssistedInject constructor(
         nalagam = true
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                // Predpomnjen pogled z diska (branje in JSON na IO niti, ne na glavni).
+                if (!streamBundle.hasCluster()) {
+                    val predpomnjen = SafeerStoreCache.beriCategoryBundle(browseUrl)
+                    if (predpomnjen.hasCluster() && !streamBundle.hasCluster()) {
+                        streamBundle = predpomnjen
+                        _viewState.value = ViewState.Success(predpomnjen)
+                    }
+                }
                 if (!svezaPrva || streamBundle.hasNext()) {
                     // Prva stran zvrsti vedno sveza iz Trgovine (predpomnjena je samo za takojsen prikaz);
                     // pozen odgovor ne zavrzemo - pokaze se, ko pride.

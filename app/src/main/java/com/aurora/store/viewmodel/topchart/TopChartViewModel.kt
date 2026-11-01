@@ -66,6 +66,7 @@ class TopChartViewModel @Inject constructor(
     private var izbrana: Kljuc? = null
     private var cakanje: Job? = null
     private var vnaprej: Job? = null
+    private var vnaprejVrsta: TopChartsContract.Type? = null
 
     private val _state = MutableStateFlow<ViewState>(ViewState.Loading)
     val state: StateFlow<ViewState> = _state.asStateFlow()
@@ -77,12 +78,21 @@ class TopChartViewModel @Inject constructor(
         val k = Kljuc(type, chart)
         izbrana = k
         cakanje?.cancel()
-        val znana =
-            lestvice[k] ?: SafeerStoreCache.beriTopChart(type, chart)?.also { lestvice[k] = it }
+        val znana = lestvice[k]
         if (znana != null && znana.clusterAppList.isNotEmpty()) {
             _state.value = ViewState.Success(znana)
         } else {
             _state.value = ViewState.Loading
+            // Disk in JSON beremo na IO niti (ne na glavni), nato pokazemo, ce je lestvica se izbrana.
+            viewModelScope.launch(Dispatchers.IO) {
+                val zDiska = SafeerStoreCache.beriTopChart(type, chart)
+                if (zDiska != null && zDiska.clusterAppList.isNotEmpty() &&
+                    lestvice.putIfAbsent(k, zDiska) == null && izbrana == k
+                ) {
+                    cakanje?.cancel()
+                    _state.value = ViewState.Success(zDiska)
+                }
+            }
             cakanje = viewModelScope.launch {
                 delay(CAKANJE_MS)
                 if (izbrana == k && lestvice[k]?.clusterAppList.isNullOrEmpty()) {
@@ -96,7 +106,9 @@ class TopChartViewModel @Inject constructor(
 
     /** Ostale lestvice iste vrste, ena za drugo (ne obremenimo televizorja in ne Trgovine). */
     private fun nalozVnaprej(type: TopChartsContract.Type) {
-        if (vnaprej?.isActive == true) return
+        if (vnaprej?.isActive == true && vnaprejVrsta == type) return
+        vnaprej?.cancel()
+        vnaprejVrsta = type
         vnaprej = viewModelScope.launch(Dispatchers.IO) {
             delay(1500)
             for (chart in VSE_LESTVICE) {

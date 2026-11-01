@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.os.Build
 import android.util.Log
+import com.aurora.store.R
 
 /** Izid namestitve Safeer aplikacije; ce sistem zeli potrditev, pokazemo njegovo okno. */
 class SafeerNamestitevReceiver : BroadcastReceiver() {
@@ -29,13 +30,19 @@ class SafeerNamestitevReceiver : BroadcastReceiver() {
                     potrdi.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     try {
                         context.startActivity(potrdi)
-                        SafeerIzdaje.sporoci(paket, "Potrdi namestitev na zaslonu")
+                        SafeerIzdaje.sporoci(paket, context.getString(R.string.safeer_confirm_install))
                     } catch (e: Exception) {
-                        SafeerIzdaje.sporoci(paket, "Namestitev ni uspela: potrditev ni mogoča")
+                        SafeerIzdaje.sporoci(
+                            paket,
+                            context.getString(R.string.safeer_install_failed_no_confirm)
+                        )
                     }
                 }
             }
-            PackageInstaller.STATUS_SUCCESS -> SafeerIzdaje.sporoci(paket, "Nameščeno")
+            PackageInstaller.STATUS_SUCCESS -> SafeerIzdaje.namestitevUspela(
+                paket,
+                context.getString(R.string.safeer_installed)
+            )
             else -> {
                 val msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE).orEmpty()
                 Log.w("SafeerIzdaje", "Namestitev $paket: status $status $msg")
@@ -44,9 +51,9 @@ class SafeerNamestitevReceiver : BroadcastReceiver() {
                     if (status ==
                         PackageInstaller.STATUS_FAILURE_ABORTED
                     ) {
-                        "Namestitev preklicana"
+                        context.getString(R.string.safeer_install_cancelled)
                     } else {
-                        "Namestitev ni uspela"
+                        context.getString(R.string.safeer_install_failed)
                     }
                 )
             }

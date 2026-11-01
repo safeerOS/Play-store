@@ -47,7 +47,7 @@ object SafeerStoreCache {
     fun trenutnaDrzava(): String {
         return try {
             val prefs = AuroraApp.appContext.getSharedPreferences(
-                "com.aurora.store_preferences",
+                "${AuroraApp.appContext.packageName}_preferences",
                 Context.MODE_PRIVATE
             )
             val spoof = prefs.getString("LOCALE_SPOOF_COUNTRY", null)

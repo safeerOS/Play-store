@@ -54,6 +54,7 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.aurora.gplayapi.data.models.App
+import com.aurora.store.R
 import com.aurora.store.compose.composable.SafeerMint
 import com.aurora.store.data.room.favourite.Favourite
 import com.aurora.store.data.room.favourite.FavouriteEntryPoint
@@ -106,7 +107,7 @@ fun AppListItem(
                         isFav = false
                         Toast.makeText(
                             context,
-                            "${app.displayName}: odstranjeno iz priljubljenih",
+                            context.getString(R.string.safeer_fav_removed, app.displayName),
                             Toast.LENGTH_SHORT
                         ).show()
                     }
@@ -116,7 +117,7 @@ fun AppListItem(
                         isFav = true
                         Toast.makeText(
                             context,
-                            "${app.displayName}: dodano med priljubljene ❤️",
+                            context.getString(R.string.safeer_fav_added, app.displayName),
                             Toast.LENGTH_SHORT
                         ).show()
                     }

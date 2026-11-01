@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,6 +37,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.aurora.store.R
 import com.aurora.store.data.safeer.SafeerIzdaje
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -77,7 +79,7 @@ class SafeerViewModel : ViewModel() {
                 if (_stanje.value !is Stanje.Seznam) {
                     _stanje.value =
                         Stanje.Napaka(
-                            "Izdaje Safeer niso dosegljive. Preveri povezavo in poskusi znova."
+                            context.getString(R.string.safeer_releases_unavailable)
                         )
                 }
             }
@@ -89,16 +91,25 @@ class SafeerViewModel : ViewModel() {
         synchronized(vTeku) { if (!vTeku.add(p.paket)) return }
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                SafeerIzdaje.sporoci(p.paket, "Prenašam 0 %")
+                SafeerIzdaje.sporoci(p.paket, context.getString(R.string.safeer_downloading, 0))
                 val f = SafeerIzdaje.prenesiInPreveri(context, p) {
-                    SafeerIzdaje.sporoci(p.paket, "Prenašam $it %")
+                    SafeerIzdaje.sporoci(
+                        p.paket,
+                        context.getString(R.string.safeer_downloading, it)
+                    )
                 }
-                SafeerIzdaje.sporoci(p.paket, "Preverjeno (vsota in Safeer podpis), nameščam …")
+                SafeerIzdaje.sporoci(
+                    p.paket,
+                    context.getString(R.string.safeer_verified_installing)
+                )
                 SafeerIzdaje.namesti(context, f, p.paket)
             } catch (e: SecurityException) {
-                SafeerIzdaje.sporoci(p.paket, "Zavrnjeno: ${e.message}")
+                SafeerIzdaje.sporoci(
+                    p.paket,
+                    context.getString(R.string.safeer_rejected, e.message.orEmpty())
+                )
             } catch (e: Exception) {
-                SafeerIzdaje.sporoci(p.paket, "Prenos ni uspel, poskusi znova")
+                SafeerIzdaje.sporoci(p.paket, context.getString(R.string.safeer_download_failed))
             } finally {
                 synchronized(vTeku) { vTeku.remove(p.paket) }
             }
@@ -113,7 +124,7 @@ fun SafeerScreen(vm: SafeerViewModel = viewModel()) {
     val sporocila by SafeerIzdaje.sporocila.collectAsStateWithLifecycle()
 
     // Ob odprtju in po vsaki koncani namestitvi osvezimo namescene razlicice.
-    val namescenih = sporocila.values.count { it == "Nameščeno" }
+    val namescenih by SafeerIzdaje.namestitve.collectAsStateWithLifecycle()
     LaunchedEffect(namescenih) { vm.nalozi(context) }
 
     LazyColumn(
@@ -124,13 +135,13 @@ fun SafeerScreen(vm: SafeerViewModel = viewModel()) {
         item {
             Column(Modifier.padding(bottom = 4.dp)) {
                 Text(
-                    "Safeer aplikacije",
+                    stringResource(R.string.safeer_apps_title),
                     color = Color.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "Uradne izdaje Safeer. Pred namestitvijo preverimo kontrolno vsoto in Safeer podpisni ključ.",
+                    stringResource(R.string.safeer_apps_desc),
                     color = Color(0xB3FFFFFF),
                     fontSize = 13.sp
                 )
@@ -138,10 +149,10 @@ fun SafeerScreen(vm: SafeerViewModel = viewModel()) {
         }
         when (val s = stanje) {
             is SafeerViewModel.Stanje.Nalagam -> item {
-                Text("Nalagam izdaje …", color = Color(0xB3FFFFFF), fontSize = 15.sp)
+                Text(stringResource(R.string.safeer_loading_releases), color = Color(0xB3FFFFFF), fontSize = 15.sp)
             }
             is SafeerViewModel.Stanje.Napaka -> item {
-                Kartica(naslov = s.besedilo, opis = "", desno = "Poskusi znova") {
+                Kartica(naslov = s.besedilo, opis = "", desno = stringResource(R.string.safeer_retry)) {
                     vm.nalozi(context, sveze = true)
                 }
             }
@@ -149,24 +160,23 @@ fun SafeerScreen(vm: SafeerViewModel = viewModel()) {
                 if (s.vrstice.isEmpty()) {
                     item {
                         Text(
-                            "Za to napravo ni Safeer izdaj.",
+                            stringResource(R.string.safeer_no_releases),
                             color = Color(0xB3FFFFFF),
                             fontSize = 15.sp
                         )
                     }
                 }
                 items(s.vrstice, key = { it.paket.paket }) { v ->
+                    val namescenoBesedilo = if (v.namesceno != null) {
+                        stringResource(R.string.safeer_installed_version, v.namesceno)
+                    } else {
+                        stringResource(R.string.safeer_not_installed)
+                    }
+                    val naVoljo = stringResource(R.string.safeer_available_version, v.paket.verzija)
                     val opis = buildString {
-                        append(
-                            if (v.namesceno !=
-                                null
-                            ) {
-                                "Nameščeno ${v.namesceno}"
-                            } else {
-                                "Ni nameščeno"
-                            }
-                        )
-                        append("  ·  Na voljo ${v.paket.verzija}")
+                        append(namescenoBesedilo)
+                        append("  ·  ")
+                        append(naVoljo)
                         if (v.paket.velikost >
                             0
                         ) {
@@ -174,9 +184,9 @@ fun SafeerScreen(vm: SafeerViewModel = viewModel()) {
                         }
                     }
                     val desno = when {
-                        v.posodobitev -> "Posodobi"
-                        v.namesceno == null -> "Namesti"
-                        else -> "Najnovejša"
+                        v.posodobitev -> stringResource(R.string.safeer_update)
+                        v.namesceno == null -> stringResource(R.string.safeer_install)
+                        else -> stringResource(R.string.safeer_latest)
                     }
                     Kartica(
                         naslov = v.paket.ime,

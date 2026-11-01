@@ -60,16 +60,28 @@ class StreamViewModel @Inject constructor(
 
     fun getStreamBundle(category: StreamContract.Category, type: StreamContract.Type) {
         // Enaka logika kot pri filmih in serijah:
-        // 1. Če imamo pogled v RAM ali na disku, ga prikažemo takoj (0 ms)!
-        val predpomnjen = stash[category] ?: SafeerStoreCache.beriHomeBundle(category)
-        if (predpomnjen != null && predpomnjen.hasCluster()) {
-            stash[category] = predpomnjen
+        // 1. Če imamo pogled v RAM, ga prikažemo takoj; disk in JSON beremo na IO niti.
+        val vRam = stash[category]
+        if (vRam != null && vRam.hasCluster()) {
             liveData.postValue(ViewState.Success(stash.toMap()))
-        } else {
-            liveData.postValue(ViewState.Loading)
+            // 2. V ozadju pridobimo sveže podatke z omrežja
+            observe(category, type)
+            return
         }
-        // 2. V ozadju pridobimo sveže podatke z omrežja
-        observe(category, type)
+        liveData.postValue(ViewState.Loading)
+        viewModelScope.launch(Dispatchers.IO) {
+            val zDiska = SafeerStoreCache.beriHomeBundle(category)
+            if (zDiska != null && zDiska.hasCluster()) {
+                stashMutex.withLock {
+                    if (stash[category]?.hasCluster() != true) {
+                        stash[category] = zDiska
+                        liveData.postValue(ViewState.Success(stash.toMap()))
+                    }
+                }
+            }
+            // 2. V ozadju pridobimo sveže podatke z omrežja
+            observe(category, type)
+        }
     }
 
     fun observe(category: StreamContract.Category, type: StreamContract.Type) {

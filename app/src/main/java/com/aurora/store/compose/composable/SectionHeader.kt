@@ -18,12 +18,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewWrapper
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aurora.store.R
 import com.aurora.store.compose.preview.ThemePreviewProvider
 
 /**
@@ -70,6 +72,11 @@ fun SectionHeader(
         }
         if (trailing != null) {
             trailing()
+        } else if (onClick != null) {
+            // Samostojen gumb (ne cela vrstica): D-pad ga doseze, naslov pa ostane nefokusabilen.
+            TextButton(onClick = onClick) {
+                Text(text = stringResource(R.string.safeer_more))
+            }
         }
     }
 }

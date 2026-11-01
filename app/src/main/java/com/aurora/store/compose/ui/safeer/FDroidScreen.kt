@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,6 +50,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
+import com.aurora.store.R
 import com.aurora.store.compose.composable.rememberSafeerMreza
 import com.aurora.store.data.safeer.FDroidVir
 import com.aurora.store.data.safeer.SafeerIzdaje
@@ -86,12 +88,13 @@ class FDroidViewModel : ViewModel() {
                 _stanje.value = Stanje.Pripravljen(k)
             } catch (e: SecurityException) {
                 if (_stanje.value !is Stanje.Pripravljen) {
-                    _stanje.value = Stanje.Napaka("Kazalo F-Droid ni prestalo preverbe podpisa.")
+                    _stanje.value =
+                        Stanje.Napaka(context.getString(R.string.safeer_fdroid_sig_failed))
                 }
             } catch (e: Exception) {
                 if (_stanje.value !is Stanje.Pripravljen) {
                     _stanje.value =
-                        Stanje.Napaka("F-Droid ni dosegljiv. Preveri povezavo in poskusi znova.")
+                        Stanje.Napaka(context.getString(R.string.safeer_fdroid_unavailable))
                 }
             }
         }
@@ -101,16 +104,25 @@ class FDroidViewModel : ViewModel() {
         synchronized(vTeku) { if (!vTeku.add(a.paket)) return }
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                SafeerIzdaje.sporoci(a.paket, "Prenašam 0 %")
+                SafeerIzdaje.sporoci(a.paket, context.getString(R.string.safeer_downloading, 0))
                 val f = FDroidVir.prenesiInPreveri(context, a) {
-                    SafeerIzdaje.sporoci(a.paket, "Prenašam $it %")
+                    SafeerIzdaje.sporoci(
+                        a.paket,
+                        context.getString(R.string.safeer_downloading, it)
+                    )
                 }
-                SafeerIzdaje.sporoci(a.paket, "Preverjeno (vsota in podpisnik F-Droid), nameščam …")
+                SafeerIzdaje.sporoci(
+                    a.paket,
+                    context.getString(R.string.safeer_fdroid_verified_installing)
+                )
                 SafeerIzdaje.namesti(context, f, a.paket)
             } catch (e: SecurityException) {
-                SafeerIzdaje.sporoci(a.paket, "Zavrnjeno: ${e.message}")
+                SafeerIzdaje.sporoci(
+                    a.paket,
+                    context.getString(R.string.safeer_rejected, e.message.orEmpty())
+                )
             } catch (e: Exception) {
-                SafeerIzdaje.sporoci(a.paket, "Prenos ni uspel, poskusi znova")
+                SafeerIzdaje.sporoci(a.paket, context.getString(R.string.safeer_download_failed))
             } finally {
                 synchronized(vTeku) { vTeku.remove(a.paket) }
             }
@@ -132,15 +144,15 @@ fun FDroidScreen(vm: FDroidViewModel = viewModel()) {
     when (val s = stanje) {
         is FDroidViewModel.Stanje.Nalagam -> Sredina(
             if (s.odstotek > 0) {
-                "Prenašam in preverjam katalog F-Droid … ${s.odstotek} %"
+                stringResource(R.string.safeer_fdroid_downloading_index, s.odstotek)
             } else {
-                "Nalagam katalog F-Droid …"
+                stringResource(R.string.safeer_fdroid_loading)
             }
         )
         is FDroidViewModel.Stanje.Napaka -> Column(Modifier.padding(16.dp)) {
             Text(s.besedilo, color = Color.White, fontSize = 16.sp)
             Spacer(Modifier.height(10.dp))
-            Gumb("Poskusi znova", true) { vm.nalozi(context, sveze = true) }
+            Gumb(stringResource(R.string.safeer_retry), true) { vm.nalozi(context, sveze = true) }
         }
         is FDroidViewModel.Stanje.Pripravljen -> {
             val k = s.katalog
@@ -169,8 +181,7 @@ fun FDroidScreen(vm: FDroidViewModel = viewModel()) {
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "Odprte aplikacije brez Googla (${k.aplikacije.size} za to napravo). " +
-                                "Kazalo in vsak paket preverimo s podpisom F-Droid.",
+                            stringResource(R.string.safeer_fdroid_desc, k.aplikacije.size),
                             color = Color(0xB3FFFFFF),
                             fontSize = 13.sp
                         )
@@ -181,7 +192,11 @@ fun FDroidScreen(vm: FDroidViewModel = viewModel()) {
                         contentPadding = PaddingValues(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        item { Gumb("Vse", zvrst == VSE) { zvrst = VSE } }
+                        item {
+                            Gumb(stringResource(R.string.action_filter_all), zvrst == VSE) {
+                                zvrst = VSE
+                            }
+                        }
                         items(zvrsti, key = { it.key }) { (id, ime) ->
                             Gumb("$ime · ${stevila[id] ?: 0}", zvrst == id) { zvrst = id }
                         }
@@ -212,9 +227,15 @@ fun FDroidScreen(vm: FDroidViewModel = viewModel()) {
                 Column {
                     Text(a.opis, color = Color.White, fontSize = 14.sp)
                     Spacer(Modifier.height(8.dp))
+                    val nameBesedilo = if (namescena != null) {
+                        stringResource(R.string.safeer_installed_version, namescena) + "  ·  "
+                    } else {
+                        ""
+                    }
                     Text(
-                        (if (namescena != null) "Nameščeno $namescena  ·  " else "") +
-                            "Na voljo ${a.verzija}  ·  ${a.velikost / (1024 * 1024)} MB",
+                        nameBesedilo +
+                            stringResource(R.string.safeer_available_version, a.verzija) +
+                            "  ·  ${a.velikost / (1024 * 1024)} MB",
                         color = Color(0xCCFFFFFF),
                         fontSize = 13.sp
                     )
@@ -223,13 +244,13 @@ fun FDroidScreen(vm: FDroidViewModel = viewModel()) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Gumb(
                             when {
-                                namescena == null -> "Namesti"
-                                potrebno -> "Posodobi"
-                                else -> "Najnovejša"
+                                namescena == null -> stringResource(R.string.safeer_install)
+                                potrebno -> stringResource(R.string.safeer_update)
+                                else -> stringResource(R.string.safeer_latest)
                             },
                             potrebno
                         ) { if (potrebno) vm.namesti(context, a) }
-                        Gumb("Zapri", false) { izbrana = null }
+                        Gumb(stringResource(R.string.safeer_close), false) { izbrana = null }
                     }
                 }
             },

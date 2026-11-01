@@ -74,39 +74,57 @@ fun SafeerStoreTopBar(
     var showChartDialog by remember { mutableStateOf(false) }
     var showCategoryDialog by remember { mutableStateOf(false) }
 
+    val oznakaIgre = stringResource(R.string.safeer_type_games)
+    val oznakaAplikacije = stringResource(R.string.safeer_type_apps)
+    val oznakaPosodobitve = if (updateCount > 0) {
+        stringResource(R.string.safeer_type_updates_count, updateCount)
+    } else {
+        stringResource(R.string.safeer_type_updates)
+    }
     val typeOptions = listOf(
-        1 to "🎮 Igre",
-        0 to "📱 Aplikacije",
-        2 to if (updateCount > 0) "🔄 Posodobitve ($updateCount)" else "🔄 Posodobitve",
+        1 to oznakaIgre,
+        0 to oznakaAplikacije,
+        2 to oznakaPosodobitve,
         3 to "🛡️ Safeer",
         4 to "🤖 F-Droid"
     )
 
+    val oznakaPriporoceno = stringResource(R.string.safeer_chart_recommended)
     val chartOptions = listOf(
-        0 to "⭐ Priporočeno",
-        1 to "❤️ Priljubljene",
-        2 to "🏆 Najboljše brezplačne",
-        3 to "⚡ V trendu",
-        4 to "💎 Z največjim donosom",
-        5 to "🏷️ Najboljše plačljive"
+        0 to oznakaPriporoceno,
+        1 to stringResource(R.string.safeer_chart_favourites),
+        2 to stringResource(R.string.safeer_chart_top_free),
+        3 to stringResource(R.string.safeer_chart_trending),
+        4 to stringResource(R.string.safeer_chart_top_grossing),
+        5 to stringResource(R.string.safeer_chart_top_paid)
     )
 
     val currentTypeLabel = when (selectedType) {
-        1 -> "🎮 Igre"
-        0 -> "📱 Aplikacije"
+        1 -> oznakaIgre
+        0 -> oznakaAplikacije
         3 -> "🛡️ Safeer"
         4 -> "🤖 F-Droid"
-        else -> if (updateCount > 0) "🔄 Posodobitve ($updateCount)" else "🔄 Posodobitve"
+        else -> oznakaPosodobitve
     }
 
+    val oznakaVseZvrsti = stringResource(R.string.safeer_all_categories)
     val currentChartLabel =
-        chartOptions.firstOrNull { it.first == selectedChartIndex }?.second ?: "⭐ Priporočeno"
-    val currentCategoryLabel = selectedCategory?.title?.ifBlank { null } ?: "Vse zvrsti"
+        chartOptions.firstOrNull { it.first == selectedChartIndex }?.second ?: oznakaPriporoceno
+    val currentCategoryLabel = selectedCategory?.title?.ifBlank { null } ?: oznakaVseZvrsti
 
-    val prednostneKategorije = remember(categories) {
+    val imenaZvrsti = listOf(
+        stringResource(R.string.safeer_cat_communication),
+        stringResource(R.string.safeer_cat_music),
+        stringResource(R.string.safeer_cat_shopping),
+        stringResource(R.string.safeer_cat_entertainment),
+        stringResource(R.string.safeer_cat_books),
+        stringResource(R.string.safeer_cat_house),
+        stringResource(R.string.safeer_cat_travel)
+    )
+    val prednostneKategorije = remember(categories, imenaZvrsti) {
         val preslikave = listOf(
-            "Komunikacija" to listOf("Komunikacija", "Communication", "COMMUNICATION"),
-            "Glasba in zvok" to
+            imenaZvrsti[0] to listOf("Komunikacija", "Communication", "COMMUNICATION"),
+            imenaZvrsti[1] to
                 listOf(
                     "Glasba in zvok",
                     "Glasba",
@@ -114,13 +132,13 @@ fun SafeerStoreTopBar(
                     "Music and Audio",
                     "MUSIC_AND_AUDIO"
                 ),
-            "Nakupovanje" to listOf("Nakupovanje", "Shopping", "SHOPPING"),
-            "Razvedrilo" to listOf("Razvedrilo", "Zabava", "Entertainment", "ENTERTAINMENT"),
-            "Knjige in viri" to
+            imenaZvrsti[2] to listOf("Nakupovanje", "Shopping", "SHOPPING"),
+            imenaZvrsti[3] to listOf("Razvedrilo", "Zabava", "Entertainment", "ENTERTAINMENT"),
+            imenaZvrsti[4] to
                 listOf("Knjige in viri", "Knjige", "Books & Reference", "BOOKS_AND_REFERENCE"),
-            "Vse o vašem domu" to
+            imenaZvrsti[5] to
                 listOf("Vse o vašem domu", "Dom", "House & Home", "HOUSE_AND_HOME"),
-            "Turistične in lokalne informacije" to
+            imenaZvrsti[6] to
                 listOf(
                     "Turistične in lokalne informacije",
                     "Potovanja in lokalno",
@@ -230,7 +248,7 @@ fun SafeerStoreTopBar(
     // Modalni dialog: Izbira vrste
     if (showTypeDialog) {
         SafeerSelectionDialog(
-            title = "Vrsta",
+            title = stringResource(R.string.safeer_dialog_type),
             options = typeOptions.map { it.second },
             selectedIndex = typeOptions.indexOfFirst { it.first == selectedType }.coerceAtLeast(0),
             onSelect = { index ->
@@ -244,7 +262,7 @@ fun SafeerStoreTopBar(
     // Modalni dialog: Izbira lestvice
     if (showChartDialog) {
         SafeerSelectionDialog(
-            title = "Razvrstitev",
+            title = stringResource(R.string.safeer_dialog_sort),
             options = chartOptions.map { it.second },
             selectedIndex = chartOptions.indexOfFirst {
                 it.first == selectedChartIndex
@@ -259,7 +277,7 @@ fun SafeerStoreTopBar(
 
     // Modalni dialog: Izbira zvrsti / kategorije
     if (showCategoryDialog) {
-        val catOptions = listOf("Vse zvrsti") + prednostneKategorije.map { it.title }
+        val catOptions = listOf(oznakaVseZvrsti) + prednostneKategorije.map { it.title }
         val currentIndex = if (selectedCategory == null) {
             0
         } else {
@@ -267,7 +285,7 @@ fun SafeerStoreTopBar(
             if (idx >= 0) idx + 1 else 0
         }
         SafeerSelectionDialog(
-            title = "Zvrst",
+            title = stringResource(R.string.safeer_dialog_category),
             options = catOptions,
             selectedIndex = currentIndex,
             onSelect = { index ->
